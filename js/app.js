@@ -24,6 +24,12 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
+function toNumOrNull(v) {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
 function pct(v) {
   return toNum(v) / 100;
 }
@@ -31,7 +37,7 @@ function pct(v) {
 function readInputs() {
   return {
     preco_venda: toNum(form.preco_venda.value),
-    preco_compra: toNum(form.preco_compra.value),
+    preco_compra: toNumOrNull(form.preco_compra.value),
     aplicar_imt: form.aplicar_imt.checked,
     comissao_venda_pct: pct(form.comissao_venda_pct.value),
     iva_comissao_pct: pct(form.iva_comissao_pct.value),
@@ -82,38 +88,49 @@ function renderResults(result, inputs) {
     tdLabel.textContent = row.label;
     tr.appendChild(tdLabel);
 
-    const td1 = document.createElement('td');
+    const tdMaximo = document.createElement('td');
     if (row.isento && !inputs.aplicar_imt) {
-      td1.textContent = 'Isento';
+      tdMaximo.textContent = 'Isento';
     } else {
-      td1.textContent = row.fmt(conta1[row.key]);
+      tdMaximo.textContent = row.fmt(conta2[row.key]);
     }
-    tr.appendChild(td1);
+    tr.appendChild(tdMaximo);
 
-    const td2 = document.createElement('td');
-    if (row.isento && !inputs.aplicar_imt) {
-      td2.textContent = 'Isento';
+    const tdInformado = document.createElement('td');
+    if (!conta1) {
+      tdInformado.textContent = '—';
+    } else if (row.isento && !inputs.aplicar_imt) {
+      tdInformado.textContent = 'Isento';
     } else {
-      td2.textContent = row.fmt(conta2[row.key]);
+      tdInformado.textContent = row.fmt(conta1[row.key]);
     }
-    tr.appendChild(td2);
+    tr.appendChild(tdInformado);
 
     resultTableBody.appendChild(tr);
   });
 
-  renderMarginViz(conta1.preco_compra, conta2.preco_compra);
+  renderMarginViz(conta1 ? conta1.preco_compra : null, conta2.preco_compra);
   resultCard.hidden = false;
   resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderMarginViz(precoInformado, precoMaximo) {
-  const diff = precoMaximo - precoInformado;
-  const diffPct = precoMaximo !== 0 ? diff / precoMaximo : 0;
-  const abaixo = diff >= 0;
-
   marginViz.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'margin-bar-wrap';
+
+  if (precoInformado === null) {
+    const label = document.createElement('p');
+    label.className = 'margin-label';
+    label.textContent = `Preço máximo de compra para o ROI alvo: ${fmtEuro(precoMaximo)}`;
+    wrap.appendChild(label);
+    marginViz.appendChild(wrap);
+    return;
+  }
+
+  const diff = precoMaximo - precoInformado;
+  const diffPct = precoMaximo !== 0 ? diff / precoMaximo : 0;
+  const abaixo = diff >= 0;
 
   const label = document.createElement('p');
   label.className = 'margin-label ' + (abaixo ? 'positive' : 'negative');
@@ -125,27 +142,27 @@ function renderMarginViz(precoInformado, precoMaximo) {
   const bar = document.createElement('div');
   bar.className = 'margin-bar';
   const max = Math.max(precoInformado, precoMaximo, 1);
-  const barInformado = document.createElement('div');
-  barInformado.className = 'margin-segment informado';
-  barInformado.style.width = `${(precoInformado / max) * 100}%`;
-  barInformado.title = `Preço informado: ${fmtEuro(precoInformado)}`;
   const barMaximo = document.createElement('div');
   barMaximo.className = 'margin-segment maximo';
   barMaximo.style.width = `${(precoMaximo / max) * 100}%`;
   barMaximo.title = `Preço máximo: ${fmtEuro(precoMaximo)}`;
-
-  bar.appendChild(barInformado);
+  bar.appendChild(barMaximo);
   wrap.appendChild(bar);
+
   const bar2 = document.createElement('div');
   bar2.className = 'margin-bar';
-  bar2.appendChild(barMaximo);
+  const barInformado = document.createElement('div');
+  barInformado.className = 'margin-segment informado';
+  barInformado.style.width = `${(precoInformado / max) * 100}%`;
+  barInformado.title = `Preço informado: ${fmtEuro(precoInformado)}`;
+  bar2.appendChild(barInformado);
   wrap.appendChild(bar2);
 
   const legend = document.createElement('div');
   legend.className = 'margin-legend';
   legend.innerHTML = `
-    <span><i class="dot informado"></i> Preço informado: ${fmtEuro(precoInformado)}</span>
     <span><i class="dot maximo"></i> Preço máximo (ROI alvo): ${fmtEuro(precoMaximo)}</span>
+    <span><i class="dot informado"></i> Preço informado: ${fmtEuro(precoInformado)}</span>
   `;
   wrap.appendChild(legend);
 

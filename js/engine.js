@@ -89,7 +89,10 @@ function calcularPrecoMaximoCompra(inputs, aux) {
 
 function calcularZFlip(inputs) {
   const aux = calcularTermosAuxiliares(inputs);
-  const conta1 = calcularConta1(inputs, inputs.preco_compra, aux);
+
+  const conta1 = inputs.preco_compra != null
+    ? calcularConta1(inputs, inputs.preco_compra, aux)
+    : null;
 
   const precoMaximo = calcularPrecoMaximoCompra(inputs, aux);
   const conta2 = calcularConta1(inputs, precoMaximo, aux);

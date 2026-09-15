@@ -28,8 +28,8 @@ function construirDocPdf(result, inputs, rows, fmt) {
   doc.rect(margin, y, 555 - margin, 22, 'F');
   doc.setFont(undefined, 'bold');
   doc.text('Indicador', colX[0] + 4, y + 15);
-  doc.text('Preço informado', colX[1] + 4, y + 15);
-  doc.text('Preço máximo', colX[2] + 4, y + 15);
+  doc.text('Preço máximo', colX[1] + 4, y + 15);
+  doc.text('Preço informado', colX[2] + 4, y + 15);
   doc.setFont(undefined, 'normal');
   y += 22;
 
@@ -42,28 +42,33 @@ function construirDocPdf(result, inputs, rows, fmt) {
     doc.setFontSize(9);
     doc.text(row.label, colX[0] + 4, y + 14);
 
-    let v1, v2;
-    if (row.isento && !inputs.aplicar_imt) {
-      v1 = v2 = 'Isento';
+    const vMaximo = (row.isento && !inputs.aplicar_imt) ? 'Isento' : row.fmt(conta2[row.key]);
+    let vInformado;
+    if (!conta1) {
+      vInformado = '—';
     } else {
-      v1 = row.fmt(conta1[row.key]);
-      v2 = row.fmt(conta2[row.key]);
+      vInformado = (row.isento && !inputs.aplicar_imt) ? 'Isento' : row.fmt(conta1[row.key]);
     }
-    doc.text(String(v1), colX[1] + 4, y + 14);
-    doc.text(String(v2), colX[2] + 4, y + 14);
+    doc.text(String(vMaximo), colX[1] + 4, y + 14);
+    doc.text(String(vInformado), colX[2] + 4, y + 14);
     y += rowH;
   });
 
   y += 20;
-  const diff = conta2.preco_compra - conta1.preco_compra;
-  const diffPct = conta2.preco_compra !== 0 ? diff / conta2.preco_compra : 0;
-  const abaixo = diff >= 0;
   doc.setFontSize(10);
-  doc.setTextColor(abaixo ? 22 : 185, abaixo ? 163 : 28, abaixo ? 74 : 28);
-  const txt = abaixo
-    ? `Preço informado está ${fmt.fmtEuro(Math.abs(diff))} (${fmt.fmtPct(Math.abs(diffPct))}) abaixo do máximo — margem de segurança.`
-    : `Preço informado está ${fmt.fmtEuro(Math.abs(diff))} (${fmt.fmtPct(Math.abs(diffPct))}) acima do máximo para o ROI alvo.`;
-  doc.text(txt, margin, y, { maxWidth: 555 - margin * 2 });
+  if (!conta1) {
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Preço máximo de compra para o ROI alvo: ${fmt.fmtEuro(conta2.preco_compra)}`, margin, y, { maxWidth: 555 - margin * 2 });
+  } else {
+    const diff = conta2.preco_compra - conta1.preco_compra;
+    const diffPct = conta2.preco_compra !== 0 ? diff / conta2.preco_compra : 0;
+    const abaixo = diff >= 0;
+    doc.setTextColor(abaixo ? 22 : 185, abaixo ? 163 : 28, abaixo ? 74 : 28);
+    const txt = abaixo
+      ? `Preço informado está ${fmt.fmtEuro(Math.abs(diff))} (${fmt.fmtPct(Math.abs(diffPct))}) abaixo do máximo — margem de segurança.`
+      : `Preço informado está ${fmt.fmtEuro(Math.abs(diff))} (${fmt.fmtPct(Math.abs(diffPct))}) acima do máximo para o ROI alvo.`;
+    doc.text(txt, margin, y, { maxWidth: 555 - margin * 2 });
+  }
 
   return doc;
 }

@@ -70,7 +70,16 @@ form {
 
 .field label { font-size: 12.5px; color: var(--text-dim); }
 
-.field input, .field select {
+.field input {
+  background: #d7f2df;
+  border: 1px solid #a9e0b8;
+  border-radius: 8px;
+  color: #111111;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.field select {
   background: var(--input-bg);
   border: 1px solid var(--card-border);
   border-radius: 8px;
@@ -81,7 +90,7 @@ form {
 
 .field input:focus, .field select:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--accent-dark);
 }
 
 .toggle-field {
