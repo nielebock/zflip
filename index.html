@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ZFlip — Zuri Real Estate</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <img src="icons/icon.svg" class="logo" alt="Zuri">
+  <div>
+    <h1>ZFlip</h1>
+    <p class="subtitle">Calculadora de Flip Imobiliário — Zuri Real Estate</p>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="form-card">
+    <h2>Dados do negócio</h2>
+    <form id="flip-form">
+      <div class="field">
+        <label for="preco_venda">Preço de venda (€)</label>
+        <input type="number" id="preco_venda" name="preco_venda" min="0" step="0.01" required>
+      </div>
+
+      <div class="field">
+        <label for="preco_compra">Preço de compra (€)</label>
+        <input type="number" id="preco_compra" name="preco_compra" min="0" step="0.01" required>
+      </div>
+
+      <div class="field toggle-field">
+        <label for="aplicar_imt">Aplicar IMT?</label>
+        <label class="switch">
+          <input type="checkbox" id="aplicar_imt" name="aplicar_imt" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="comissao_venda_pct">Comissão de venda (%)</label>
+        <input type="number" id="comissao_venda_pct" name="comissao_venda_pct" min="0" max="100" step="0.01" value="5">
+      </div>
+
+      <div class="field">
+        <label for="iva_comissao_pct">IVA sobre comissão (%)</label>
+        <input type="number" id="iva_comissao_pct" name="iva_comissao_pct" min="0" max="100" step="0.01" value="23">
+      </div>
+
+      <div class="field">
+        <label for="roi_alvo_pct">ROI alvo (%)</label>
+        <input type="number" id="roi_alvo_pct" name="roi_alvo_pct" min="0" max="1000" step="0.01" value="15">
+      </div>
+
+      <div class="field">
+        <label for="prazo_meses">Prazo do negócio (meses)</label>
+        <input type="number" id="prazo_meses" name="prazo_meses" min="0" step="1" value="4">
+      </div>
+
+      <div class="field">
+        <label for="modo_remodelacao">Modo de remodelação</label>
+        <select id="modo_remodelacao" name="modo_remodelacao">
+          <option value="pct" selected>% sobre aquisição</option>
+          <option value="fixo">Valor direto (€)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="remodelacao_valor" id="label-remodelacao">Remodelação (%)</label>
+        <input type="number" id="remodelacao_valor" name="remodelacao_valor" min="0" step="0.01" value="12">
+      </div>
+
+      <div class="field">
+        <label for="custos_juridicos_pct">Custos jurídicos (% sobre aquisição)</label>
+        <input type="number" id="custos_juridicos_pct" name="custos_juridicos_pct" min="0" step="0.01" value="0.5">
+      </div>
+
+      <div class="field">
+        <label for="escritura_registos_pct">Escritura + registos (% sobre aquisição)</label>
+        <input type="number" id="escritura_registos_pct" name="escritura_registos_pct" min="0" step="0.01" value="0.5">
+      </div>
+
+      <div class="field">
+        <label for="imposto_selo_pct">Imposto do Selo (% sobre aquisição)</label>
+        <input type="number" id="imposto_selo_pct" name="imposto_selo_pct" min="0" step="0.01" value="0.8">
+      </div>
+
+      <div class="field">
+        <label for="outros_custos_pct">Outros custos (% sobre aquisição)</label>
+        <input type="number" id="outros_custos_pct" name="outros_custos_pct" min="0" step="0.01" value="1">
+      </div>
+
+      <div class="field">
+        <label for="imi_anual_pct">IMI anual (% sobre aquisição)</label>
+        <input type="number" id="imi_anual_pct" name="imi_anual_pct" min="0" step="0.01" value="0.32">
+      </div>
+
+      <button type="submit" class="btn-primary">Calcular</button>
+    </form>
+  </section>
+
+  <section class="card" id="result-card" hidden>
+    <h2>Folha de proposta</h2>
+    <div class="table-wrap">
+      <table id="result-table">
+        <thead>
+          <tr>
+            <th>Indicador</th>
+            <th>Com preço de compra informado</th>
+            <th>Preço máximo (ROI alvo)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="margin-viz" class="margin-viz"></div>
+
+    <div class="export-actions">
+      <button id="btn-pdf" class="btn-secondary">Gerar PDF</button>
+      <button id="btn-email" class="btn-secondary">Enviar por e-mail</button>
+      <button id="btn-whatsapp" class="btn-secondary">Enviar por WhatsApp</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Zuri Real Estate · ZFlip</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="js/imt.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
