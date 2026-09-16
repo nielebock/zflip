@@ -5,9 +5,49 @@ const marginViz = document.getElementById('margin-viz');
 const modoRemodelacaoSel = document.getElementById('modo_remodelacao');
 const labelRemodelacao = document.getElementById('label-remodelacao');
 const remodelacaoInput = document.getElementById('remodelacao_valor');
+const precoVendaInput = document.getElementById('preco_venda');
+const precoVendaError = document.getElementById('error-preco_venda');
+const btnCalcular = document.getElementById('btn-calcular');
+const exportModal = document.getElementById('export-modal');
+const exportNomeImovelInput = document.getElementById('export-nome-imovel');
 
 let lastResult = null;
 let lastInputs = null;
+let pendingExportKind = null;
+
+const FORM_STORAGE_KEY = 'zflip:last-form';
+
+function saveFormToStorage() {
+  try {
+    const data = {};
+    Array.from(form.elements).forEach(el => {
+      if (!el.name) return;
+      data[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data));
+  } catch (err) { /* storage indisponível, ignora */ }
+}
+
+function restoreFormFromStorage() {
+  try {
+    const raw = localStorage.getItem(FORM_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    Object.keys(data).forEach(name => {
+      const el = form.elements[name];
+      if (!el) return;
+      if (el.type === 'checkbox') {
+        el.checked = data[name];
+      } else {
+        el.value = data[name];
+      }
+    });
+    modoRemodelacaoSel.dispatchEvent(new Event('change'));
+  } catch (err) { /* storage indisponível, ignora */ }
+}
+
+restoreFormFromStorage();
+updateCalcularButtonState();
 
 modoRemodelacaoSel.addEventListener('change', () => {
   if (modoRemodelacaoSel.value === 'fixo') {
@@ -169,46 +209,98 @@ function renderMarginViz(precoInformado, precoMaximo) {
   marginViz.appendChild(wrap);
 }
 
+function setPrecoVendaInvalid(invalid) {
+  precoVendaInput.classList.toggle('invalid', invalid);
+  precoVendaError.hidden = !invalid;
+}
+
+function updateCalcularButtonState() {
+  const preenchido = precoVendaInput.value.trim() !== '';
+  btnCalcular.disabled = !preenchido;
+  if (preenchido) setPrecoVendaInvalid(false);
+}
+
+precoVendaInput.addEventListener('input', updateCalcularButtonState);
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
+  if (precoVendaInput.value.trim() === '') {
+    setPrecoVendaInvalid(true);
+    precoVendaInput.focus();
+    return;
+  }
+  setPrecoVendaInvalid(false);
   const inputs = readInputs();
   const result = calcularZFlip(inputs);
   lastResult = result;
   lastInputs = inputs;
   renderResults(result, inputs);
+  saveFormToStorage();
 });
 
-document.getElementById('btn-pdf').addEventListener('click', () => {
+function slugifyNomeImovel(nome) {
+  const base = nome.trim() || 'proposta-zflip';
+  return base
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'proposta-zflip';
+}
+
+function buildExportFilename(nome) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const data = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const hora = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+  return `${slugifyNomeImovel(nome)}_${data}_${hora}.pdf`;
+}
+
+function openExportModal(kind) {
   if (!lastResult) return;
-  gerarPdfProposta(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
+  pendingExportKind = kind;
+  exportModal.hidden = false;
+  exportNomeImovelInput.focus();
+}
+
+function closeExportModal() {
+  exportModal.hidden = true;
+  pendingExportKind = null;
+}
+
+document.querySelectorAll('[data-export]').forEach(btn => {
+  btn.addEventListener('click', () => openExportModal(btn.dataset.export));
 });
 
-document.getElementById('btn-email').addEventListener('click', async () => {
-  if (!lastResult) return;
-  const blob = await gerarPdfBlob(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
-  const file = new File([blob], 'proposta-zflip.pdf', { type: 'application/pdf' });
+document.getElementById('export-cancel').addEventListener('click', closeExportModal);
+
+document.getElementById('export-confirm').addEventListener('click', async () => {
+  const kind = pendingExportKind;
+  const nomeImovel = exportNomeImovelInput.value.trim();
+  const filename = buildExportFilename(nomeImovel);
+  closeExportModal();
+
+  if (kind === 'pdf') {
+    gerarPdfProposta(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct }, { nomeImovel, filename });
+    return;
+  }
+
+  const blob = await gerarPdfBlob(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct }, { nomeImovel, filename });
+  const file = new File([blob], filename, { type: 'application/pdf' });
+
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Proposta ZFlip', text: 'Proposta de flip imobiliário — Zuri Real Estate' });
       return;
     } catch (err) { /* fallback abaixo */ }
   }
-  const url = URL.createObjectURL(blob);
-  window.location.href = `mailto:?subject=Proposta%20ZFlip&body=Segue%20proposta%20de%20flip%20imobiliário%20em%20anexo.`;
-  window.open(url, '_blank');
-});
 
-document.getElementById('btn-whatsapp').addEventListener('click', async () => {
-  if (!lastResult) return;
-  const blob = await gerarPdfBlob(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
-  const file = new File([blob], 'proposta-zflip.pdf', { type: 'application/pdf' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Proposta ZFlip', text: 'Proposta de flip imobiliário — Zuri Real Estate' });
-      return;
-    } catch (err) { /* fallback abaixo */ }
+  if (kind === 'email') {
+    const url = URL.createObjectURL(blob);
+    window.location.href = `mailto:?subject=Proposta%20ZFlip&body=Segue%20proposta%20de%20flip%20imobiliário%20em%20anexo.`;
+    window.open(url, '_blank');
+  } else if (kind === 'whatsapp') {
+    window.open('https://wa.me/?text=Proposta%20de%20flip%20imobili%C3%A1rio%20-%20Zuri%20Real%20Estate', '_blank');
   }
-  window.open('https://wa.me/?text=Proposta%20de%20flip%20imobili%C3%A1rio%20-%20Zuri%20Real%20Estate', '_blank');
 });
 
 if ('serviceWorker' in navigator) {

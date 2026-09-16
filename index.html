@@ -22,84 +22,105 @@
 <main>
   <section class="card" id="form-card">
     <h2>Dados do negócio</h2>
-    <form id="flip-form">
-      <div class="field">
-        <label for="preco_venda">Preço de venda (€)</label>
-        <input type="number" id="preco_venda" name="preco_venda" min="0" step="0.01" required>
-      </div>
+    <form id="flip-form" novalidate>
+      <fieldset>
+        <legend>Preço &amp; ROI</legend>
+        <div class="grid">
+          <div class="field">
+            <label for="preco_venda">Preço de venda (€)</label>
+            <input type="number" id="preco_venda" name="preco_venda" min="0" step="0.01">
+            <p class="field-error" id="error-preco_venda" hidden>Informe o preço de venda.</p>
+          </div>
 
-      <div class="field">
-        <label for="preco_compra">Preço de compra (€) — opcional</label>
-        <input type="number" id="preco_compra" name="preco_compra" min="0" step="0.01">
-      </div>
+          <div class="field">
+            <label for="preco_compra">Preço de compra (€) — opcional</label>
+            <input type="number" id="preco_compra" name="preco_compra" min="0" step="0.01">
+          </div>
 
-      <div class="field toggle-field">
-        <label for="aplicar_imt">Aplicar IMT?</label>
-        <label class="switch">
-          <input type="checkbox" id="aplicar_imt" name="aplicar_imt" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
+          <div class="field">
+            <label for="roi_alvo_pct">ROI alvo (%)</label>
+            <input type="number" id="roi_alvo_pct" name="roi_alvo_pct" min="0" max="1000" step="0.01" value="15">
+          </div>
 
-      <div class="field">
-        <label for="comissao_venda_pct">Comissão de venda (%)</label>
-        <input type="number" id="comissao_venda_pct" name="comissao_venda_pct" min="0" max="100" step="0.01" value="5">
-      </div>
+          <div class="field">
+            <label for="prazo_meses">Prazo do negócio (meses)</label>
+            <input type="number" id="prazo_meses" name="prazo_meses" min="0" step="1" value="4">
+          </div>
+        </div>
+      </fieldset>
 
-      <div class="field">
-        <label for="iva_comissao_pct">IVA sobre comissão (%)</label>
-        <input type="number" id="iva_comissao_pct" name="iva_comissao_pct" min="0" max="100" step="0.01" value="23">
-      </div>
+      <fieldset>
+        <legend>Impostos</legend>
+        <div class="grid">
+          <div class="field toggle-field">
+            <label for="aplicar_imt">Aplicar IMT?</label>
+            <label class="switch">
+              <input type="checkbox" id="aplicar_imt" name="aplicar_imt" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
 
-      <div class="field">
-        <label for="roi_alvo_pct">ROI alvo (%)</label>
-        <input type="number" id="roi_alvo_pct" name="roi_alvo_pct" min="0" max="1000" step="0.01" value="15">
-      </div>
+          <div class="field">
+            <label for="imi_anual_pct">IMI anual (% sobre aquisição)</label>
+            <input type="number" id="imi_anual_pct" name="imi_anual_pct" min="0" step="0.01" value="0.32">
+          </div>
 
-      <div class="field">
-        <label for="prazo_meses">Prazo do negócio (meses)</label>
-        <input type="number" id="prazo_meses" name="prazo_meses" min="0" step="1" value="4">
-      </div>
+          <div class="field">
+            <label for="imposto_selo_pct">Imposto do Selo (% sobre aquisição)</label>
+            <input type="number" id="imposto_selo_pct" name="imposto_selo_pct" min="0" step="0.01" value="0.8">
+          </div>
 
-      <div class="field">
-        <label for="modo_remodelacao">Modo de remodelação</label>
-        <select id="modo_remodelacao" name="modo_remodelacao">
-          <option value="pct" selected>% sobre aquisição</option>
-          <option value="fixo">Valor direto (€)</option>
-        </select>
-      </div>
+          <div class="field">
+            <label for="iva_comissao_pct">IVA sobre comissão (%)</label>
+            <input type="number" id="iva_comissao_pct" name="iva_comissao_pct" min="0" max="100" step="0.01" value="23">
+          </div>
+        </div>
+      </fieldset>
 
-      <div class="field">
-        <label for="remodelacao_valor" id="label-remodelacao">Remodelação (%)</label>
-        <input type="number" id="remodelacao_valor" name="remodelacao_valor" min="0" step="0.01" value="12">
-      </div>
+      <fieldset>
+        <legend>Custos da obra e venda</legend>
+        <div class="grid">
+          <div class="field">
+            <label for="modo_remodelacao">Modo de remodelação</label>
+            <select id="modo_remodelacao" name="modo_remodelacao">
+              <option value="pct" selected>% sobre aquisição</option>
+              <option value="fixo">Valor direto (€)</option>
+            </select>
+          </div>
 
-      <div class="field">
-        <label for="custos_juridicos_pct">Custos jurídicos (% sobre aquisição)</label>
-        <input type="number" id="custos_juridicos_pct" name="custos_juridicos_pct" min="0" step="0.01" value="0.5">
-      </div>
+          <div class="field">
+            <label for="remodelacao_valor" id="label-remodelacao">Remodelação (%)</label>
+            <input type="number" id="remodelacao_valor" name="remodelacao_valor" min="0" step="0.01" value="12">
+          </div>
 
-      <div class="field">
-        <label for="escritura_registos_pct">Escritura + registos (% sobre aquisição)</label>
-        <input type="number" id="escritura_registos_pct" name="escritura_registos_pct" min="0" step="0.01" value="0.5">
-      </div>
+          <div class="field">
+            <label for="comissao_venda_pct">Comissão de venda (%)</label>
+            <input type="number" id="comissao_venda_pct" name="comissao_venda_pct" min="0" max="100" step="0.01" value="5">
+          </div>
 
-      <div class="field">
-        <label for="imposto_selo_pct">Imposto do Selo (% sobre aquisição)</label>
-        <input type="number" id="imposto_selo_pct" name="imposto_selo_pct" min="0" step="0.01" value="0.8">
-      </div>
+          <div class="field">
+            <label for="outros_custos_pct">Outros custos (% sobre aquisição)</label>
+            <input type="number" id="outros_custos_pct" name="outros_custos_pct" min="0" step="0.01" value="1">
+          </div>
+        </div>
+      </fieldset>
 
-      <div class="field">
-        <label for="outros_custos_pct">Outros custos (% sobre aquisição)</label>
-        <input type="number" id="outros_custos_pct" name="outros_custos_pct" min="0" step="0.01" value="1">
-      </div>
+      <fieldset>
+        <legend>Custos jurídicos</legend>
+        <div class="grid">
+          <div class="field">
+            <label for="custos_juridicos_pct">Custos jurídicos (% sobre aquisição)</label>
+            <input type="number" id="custos_juridicos_pct" name="custos_juridicos_pct" min="0" step="0.01" value="0.5">
+          </div>
 
-      <div class="field">
-        <label for="imi_anual_pct">IMI anual (% sobre aquisição)</label>
-        <input type="number" id="imi_anual_pct" name="imi_anual_pct" min="0" step="0.01" value="0.32">
-      </div>
+          <div class="field">
+            <label for="escritura_registos_pct">Escritura + registos (% sobre aquisição)</label>
+            <input type="number" id="escritura_registos_pct" name="escritura_registos_pct" min="0" step="0.01" value="0.5">
+          </div>
+        </div>
+      </fieldset>
 
-      <button type="submit" class="btn-primary">Calcular</button>
+      <button type="submit" class="btn-primary" id="btn-calcular" disabled>Calcular</button>
     </form>
   </section>
 
@@ -121,12 +142,27 @@
     <div id="margin-viz" class="margin-viz"></div>
 
     <div class="export-actions">
-      <button id="btn-pdf" class="btn-secondary">Gerar PDF</button>
-      <button id="btn-email" class="btn-secondary">Enviar por e-mail</button>
-      <button id="btn-whatsapp" class="btn-secondary">Enviar por WhatsApp</button>
+      <button id="btn-pdf" class="btn-secondary" data-export="pdf">Gerar PDF</button>
+      <button id="btn-email" class="btn-secondary" data-export="email">Enviar por e-mail</button>
+      <button id="btn-whatsapp" class="btn-secondary" data-export="whatsapp">Enviar por WhatsApp</button>
     </div>
   </section>
 </main>
+
+<div id="export-modal" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <h3>Identificação do imóvel</h3>
+    <p class="modal-hint">Usado no nome do arquivo e impresso no PDF (prédio, dono, morada, etc.).</p>
+    <div class="field">
+      <label for="export-nome-imovel">Nome do imóvel</label>
+      <input type="text" id="export-nome-imovel" placeholder="Ex.: Rua das Flores 123, Lisboa">
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="export-cancel" class="btn-secondary">Cancelar</button>
+      <button type="button" id="export-confirm" class="btn-primary">Continuar</button>
+    </div>
+  </div>
+</div>
 
 <footer>
   <p>Zuri Real Estate · ZFlip</p>

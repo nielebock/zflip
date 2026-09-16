@@ -1,7 +1,8 @@
-function construirDocPdf(result, inputs, rows, fmt) {
+function construirDocPdf(result, inputs, rows, fmt, meta) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const { conta1, conta2 } = result;
+  const nomeImovel = (meta && meta.nomeImovel) || '';
 
   const margin = 40;
   let y = margin;
@@ -17,30 +18,38 @@ function construirDocPdf(result, inputs, rows, fmt) {
   y = 100;
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(10);
-  const dataStr = new Date().toLocaleDateString('pt-PT');
-  doc.text(`Data: ${dataStr}`, margin, y);
+  const now = new Date();
+  const dataStr = now.toLocaleDateString('pt-PT');
+  const horaStr = now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  if (nomeImovel) {
+    doc.setFont(undefined, 'bold');
+    doc.text(`Imóvel: ${nomeImovel}`, margin, y);
+    doc.setFont(undefined, 'normal');
+    y += 16;
+  }
+  doc.text(`Data: ${dataStr} ${horaStr}`, margin, y);
   y += 25;
 
-  const colX = [margin, 300, 440];
-  const colW = [260, 140, 120];
+  const colX = [margin, 440, 555];
+  const rightEdge = 555;
 
   doc.setFillColor(226, 232, 240);
-  doc.rect(margin, y, 555 - margin, 22, 'F');
+  doc.rect(margin, y, rightEdge - margin, 20, 'F');
   doc.setFont(undefined, 'bold');
-  doc.text('Indicador', colX[0] + 4, y + 15);
-  doc.text('Preço máximo', colX[1] + 4, y + 15);
-  doc.text('Preço informado', colX[2] + 4, y + 15);
+  doc.text('Indicador', colX[0] + 4, y + 14);
+  doc.text('Preço máximo', colX[1], y + 14, { align: 'right' });
+  doc.text('Preço informado', colX[2], y + 14, { align: 'right' });
   doc.setFont(undefined, 'normal');
-  y += 22;
+  y += 20;
 
   rows.forEach((row, i) => {
-    const rowH = 20;
+    const rowH = 16;
     if (i % 2 === 0) {
       doc.setFillColor(248, 250, 252);
-      doc.rect(margin, y, 555 - margin, rowH, 'F');
+      doc.rect(margin, y, rightEdge - margin, rowH, 'F');
     }
     doc.setFontSize(9);
-    doc.text(row.label, colX[0] + 4, y + 14);
+    doc.text(row.label, colX[0] + 4, y + 11);
 
     const vMaximo = (row.isento && !inputs.aplicar_imt) ? 'Isento' : row.fmt(conta2[row.key]);
     let vInformado;
@@ -49,8 +58,8 @@ function construirDocPdf(result, inputs, rows, fmt) {
     } else {
       vInformado = (row.isento && !inputs.aplicar_imt) ? 'Isento' : row.fmt(conta1[row.key]);
     }
-    doc.text(String(vMaximo), colX[1] + 4, y + 14);
-    doc.text(String(vInformado), colX[2] + 4, y + 14);
+    doc.text(String(vMaximo), colX[1], y + 11, { align: 'right' });
+    doc.text(String(vInformado), colX[2], y + 11, { align: 'right' });
     y += rowH;
   });
 
@@ -73,12 +82,12 @@ function construirDocPdf(result, inputs, rows, fmt) {
   return doc;
 }
 
-function gerarPdfProposta(result, inputs, rows, fmt) {
-  const doc = construirDocPdf(result, inputs, rows, fmt);
-  doc.save('proposta-zflip.pdf');
+function gerarPdfProposta(result, inputs, rows, fmt, meta) {
+  const doc = construirDocPdf(result, inputs, rows, fmt, meta);
+  doc.save((meta && meta.filename) || 'proposta-zflip.pdf');
 }
 
-async function gerarPdfBlob(result, inputs, rows, fmt) {
-  const doc = construirDocPdf(result, inputs, rows, fmt);
+async function gerarPdfBlob(result, inputs, rows, fmt, meta) {
+  const doc = construirDocPdf(result, inputs, rows, fmt, meta);
   return doc.output('blob');
 }
