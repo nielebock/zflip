@@ -125,8 +125,14 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - E-mail para destinatários reais: o remetente onboarding@resend.dev só entrega ao dono da conta Resend até o domínio da Zuri ser verificado. Depois, definir RESEND_FROM na Vercel.
 
 **Pendências**
-- [ ] Apagar os dados de teste do banco (4 linhas em `negocios` e arquivos no bucket), ver mensagem da sessão
+- [ ] Apagar os dados de teste do banco (linhas em `negocios` e arquivos no bucket). A limpeza por script foi bloqueada pelo classificador de permissões do Claude Code; fazer no painel do Supabase ou criar uma regra de permissão Bash
 - [ ] Verificar domínio da Zuri no Resend e definir RESEND_FROM
 - [ ] Rotacionar as chaves do Supabase e do Resend, pois foram coladas em uma conversa
 - [ ] Testar WhatsApp e PDF em iPhone e Android
 - [ ] Decidir sobre o desconto de condomínio (seção 4) continua em aberto
+
+**Layout do PDF (atualizado depois)**
+- Página 1: tabela, margem, miniaturas das fotos em uma linha e lista de documentos com a coluna "No arquivo".
+- Páginas seguintes: fotos grandes, 2 por página, inteiras (object-fit contain) sobre fundo Limestone.
+- Final do arquivo: documentos PDF (todas as páginas) e imagens PNG ou JPG, uma por página A4, via pdf-lib (api/_lib/anexos.js). Word, Excel, HEIC, WebP e arquivos corrompidos ficam só listados ("Somente listado").
+- Preço de compra continua opcional (decisão final do usuário; a spec foi atualizada).

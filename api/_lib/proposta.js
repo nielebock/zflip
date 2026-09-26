@@ -55,19 +55,14 @@ function blocoMargem(direta, reversa) {
   </div>`;
 }
 
-export function nomeDoCaminho(caminho) {
-  // caminho: <id>/documentos/<n>-<nome>
-  const base = caminho.split('/').pop();
-  return base.replace(/^\d+-/, '');
-}
-
 function tipoDoNome(nome) {
   const ext = nome.includes('.') ? nome.split('.').pop().toUpperCase() : '';
   return ext || 'Arquivo';
 }
 
 // fotos: lista de data URIs já baixados do Storage
-export function renderProposta(negocio, fotos) {
+// docs: [{ nome, incluido }], incluido = true quando o documento entra como páginas no final do PDF
+export function renderProposta(negocio, fotos, docs = []) {
   const direta = negocio.resultado_conta_direta;
   const reversa = negocio.resultado_conta_reversa;
   const aplicarImt = negocio.aplicar_imt;
@@ -90,14 +85,23 @@ export function renderProposta(negocio, fotos) {
       </div>
     </section>` : '';
 
-  const docs = negocio.documentos || [];
+  const paginasFotos = [];
+  for (let i = 0; i < fotos.length; i += 2) {
+    const par = fotos.slice(i, i + 2);
+    paginasFotos.push(`
+    <section class="pagina-fotos">
+      <div class="pagina-topo"><span class="pagina-marca">ZURI</span><span>Fotos do imóvel, ${i + 1}${par.length > 1 ? ' e ' + (i + 2) : ''} de ${fotos.length}</span></div>
+      ${par.map(src => `<div class="foto-grande"><img src="${src}"></div>`).join('')}
+    </section>`);
+  }
+
   const listaDocs = docs.length ? `
     <section class="bloco evitar-quebra">
       <h2>Documentos anexados</h2>
       <table class="docs">
-        <thead><tr><th>Arquivo</th><th>Tipo</th></tr></thead>
+        <thead><tr><th>Arquivo</th><th>Tipo</th><th>No arquivo</th></tr></thead>
         <tbody>
-          ${docs.map(c => { const n = nomeDoCaminho(c); return `<tr><td>${esc(n)}</td><td>${esc(tipoDoNome(n))}</td></tr>`; }).join('')}
+          ${docs.map(d => `<tr><td>${esc(d.nome)}</td><td>${esc(tipoDoNome(d.nome))}</td><td>${d.incluido ? 'Nas páginas seguintes' : 'Somente listado'}</td></tr>`).join('')}
         </tbody>
       </table>
     </section>` : '';
@@ -127,21 +131,21 @@ export function renderProposta(negocio, fotos) {
   header {
     background: var(--forest);
     color: var(--limestone);
-    padding: 34px 48px 28px;
+    padding: 28px 48px 22px;
     display: flex; justify-content: space-between; align-items: flex-end;
   }
   .marca { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34pt; letter-spacing: 0.32em; line-height: 1; font-weight: 600; }
   .marca-sub { font-size: 8pt; letter-spacing: 0.4em; text-transform: uppercase; margin-top: 8px; color: var(--stone); }
   .titulo-doc { text-align: right; font-size: 9pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); }
   .titulo-doc strong { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18pt; letter-spacing: 0.04em; text-transform: none; color: var(--limestone); font-weight: 500; margin-top: 4px; }
-  main { padding: 30px 48px 0; }
+  main { padding: 22px 48px 0; }
   h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 15pt; margin: 0 0 12px; color: var(--forest); }
-  .bloco { margin-bottom: 26px; }
+  .bloco { margin-bottom: 20px; }
   .evitar-quebra { break-inside: avoid; }
   table { width: 100%; border-collapse: collapse; }
   .contas th { text-align: right; font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); font-weight: 600; padding: 0 12px 10px; border-bottom: 1.5px solid var(--forest); }
   .contas th:first-child { text-align: left; padding-left: 0; }
-  .contas td { padding: 7px 12px; border-bottom: 1px solid var(--stone); text-align: right; font-variant-numeric: tabular-nums; }
+  .contas td { padding: 5.5px 12px; border-bottom: 1px solid var(--stone); text-align: right; font-variant-numeric: tabular-nums; }
   .contas td:first-child { text-align: left; padding-left: 0; color: var(--mineral); }
   .contas tr.destaque td { background: var(--limestone); font-weight: 600; color: var(--forest); }
   .contas tr.destaque td:first-child { padding-left: 10px; }
@@ -160,13 +164,20 @@ export function renderProposta(negocio, fotos) {
   .fotos.n1 { grid-template-columns: 1fr; }
   .fotos.n2 { grid-template-columns: repeat(2, 1fr); }
   .fotos.n3 { grid-template-columns: repeat(3, 1fr); }
-  .foto { aspect-ratio: 4 / 3; overflow: hidden; background: var(--stone); }
+  .foto { aspect-ratio: 3 / 2; overflow: hidden; background: var(--stone); }
   .fotos.n1 .foto { aspect-ratio: 16 / 9; }
   .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .docs th { text-align: left; font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); font-weight: 600; padding: 0 0 8px; border-bottom: 1.5px solid var(--forest); }
-  .docs td { padding: 6px 0; border-bottom: 1px solid var(--stone); }
-  .docs td:last-child, .docs th:last-child { text-align: right; width: 90px; color: var(--mineral); }
-  footer { margin: 10px 48px 0; padding: 14px 0 30px; border-top: 1px solid var(--stone); display: flex; justify-content: space-between; font-size: 8pt; color: var(--mineral); }
+  .docs td { padding: 5px 0; border-bottom: 1px solid var(--stone); }
+  .docs td:nth-child(n+2), .docs th:nth-child(n+2) { text-align: right; color: var(--mineral); white-space: nowrap; }
+  .docs td:nth-child(2), .docs th:nth-child(2) { width: 70px; }
+  .docs td:nth-child(3), .docs th:nth-child(3) { width: 170px; }
+  .pagina-fotos { break-before: page; padding: 40px 48px 0; height: 297mm; overflow: hidden; }
+  .pagina-topo { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 1.5px solid var(--forest); font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); }
+  .pagina-marca { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16pt; letter-spacing: 0.32em; color: var(--forest); font-weight: 600; }
+  .foto-grande { height: 118mm; margin-bottom: 14px; background: var(--limestone); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .foto-grande img { max-width: 100%; max-height: 100%; display: block; }
+  footer { margin: 4px 48px 0; padding: 12px 0 24px; border-top: 1px solid var(--stone); display: flex; justify-content: space-between; font-size: 8pt; color: var(--mineral); }
 </style>
 </head>
 <body>
@@ -195,6 +206,7 @@ export function renderProposta(negocio, fotos) {
     <span>Gerado em ${esc(data)}</span>
     <span>Negócio ${esc(negocio.id)}</span>
   </footer>
+  ${paginasFotos.join('')}
 </body>
 </html>`;
 }

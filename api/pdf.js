@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer-core';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
 import { renderProposta } from './_lib/proposta.js';
+import { nomeDoCaminho, prepararAnexos, juntar } from './_lib/anexos.js';
 
 chromium.setGraphicsMode = false;
 
@@ -30,6 +31,12 @@ async function baixarComoDataUri(sb, caminho) {
   return `data:${data.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
 }
 
+async function baixarBytes(sb, caminho) {
+  const { data, error } = await sb.storage.from(BUCKET).download(caminho);
+  if (error || !data) return null; // upload não concluído: o documento fica só listado
+  return new Uint8Array(await data.arrayBuffer());
+}
+
 async function gerarPdf(html) {
   const browser = await abrirNavegador();
   try {
@@ -52,7 +59,12 @@ export async function POST(request) {
 
   try {
     const fotos = (await Promise.all((negocio.fotos || []).map(c => baixarComoDataUri(sb, c)))).filter(Boolean);
-    const pdf = await gerarPdf(renderProposta(negocio, fotos));
+    const arquivos = await Promise.all((negocio.documentos || []).map(async c => ({
+      nome: nomeDoCaminho(c),
+      bytes: await baixarBytes(sb, c),
+    })));
+    const { anexos, docs } = await prepararAnexos(arquivos);
+    const pdf = await juntar(await gerarPdf(renderProposta(negocio, fotos, docs)), anexos);
 
     const caminho = `${negocio.id}/proposta-zflip.pdf`;
     const { error: erroUpload } = await sb.storage.from(BUCKET)
