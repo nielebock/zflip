@@ -59,7 +59,14 @@ export async function POST(request) {
   if (error || !negocio) return erro('Negócio não encontrado', 404);
 
   try {
-    const fotos = (await Promise.all((negocio.fotos || []).map(c => baixarComoDataUri(sb, c)))).filter(Boolean);
+    // Negócios novos: miniaturas de todas as fotos na página 1 e só as principais grandes.
+    // Negócios antigos (sem miniaturas): as fotos guardadas servem para os dois usos.
+    const temMiniaturas = (negocio.miniaturas || []).length > 0;
+    const caminhosGrandes = temMiniaturas ? (negocio.fotos_principais || []) : (negocio.fotos || []).slice(0, 4);
+    const caminhosMiniaturas = temMiniaturas ? negocio.miniaturas : caminhosGrandes;
+    const baixar = async lista => (await Promise.all(lista.map(c => baixarComoDataUri(sb, c)))).filter(Boolean);
+    const fotos = { miniaturas: await baixar(caminhosMiniaturas), grandes: temMiniaturas ? await baixar(caminhosGrandes) : null };
+    if (!fotos.grandes) fotos.grandes = fotos.miniaturas;
     const arquivos = await Promise.all((negocio.documentos || []).map(async c => ({
       nome: nomeDoCaminho(c),
       bytes: await baixarBytes(sb, c),

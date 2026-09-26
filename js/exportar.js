@@ -93,20 +93,38 @@ async function chamarApi(caminho, corpo) {
 }
 
 // Envia direto ao Storage pela URL assinada, sem passar pelo limite de 4,5 MB da Vercel.
-async function enviarArquivos(lista, itens, definirStatus, rotulo) {
-  for (let i = 0; i < lista.length; i++) {
-    definirStatus(`Enviando ${rotulo} ${i + 1} de ${lista.length}...`);
-    const corpo = new FormData();
-    corpo.append('cacheControl', '3600');
-    corpo.append('', itens[i]);
-    let resp;
-    try {
-      resp = await fetch(lista[i].url, { method: 'PUT', body: corpo });
-    } catch {
-      throw new Error(`Sem conexão ao enviar ${itens[i].name}. Tente de novo.`);
-    }
-    if (!resp.ok) throw new Error(`Falha ao enviar ${itens[i].name}`);
+async function enviarUm(url, arquivo) {
+  const corpo = new FormData();
+  corpo.append('cacheControl', '3600');
+  corpo.append('', arquivo);
+  let resp;
+  try {
+    resp = await fetch(url, { method: 'PUT', body: corpo });
+  } catch {
+    throw new Error(`Sem conexão ao enviar ${arquivo.name}. Tente de novo.`);
   }
+  if (!resp.ok) throw new Error(`Falha ao enviar ${arquivo.name}`);
+}
+
+// Envia vários arquivos, quatro de cada vez, mostrando o progresso.
+async function enviarTodos(tarefas, definirStatus) {
+  let proximo = 0;
+  let feitos = 0;
+  let falhou = false;
+  const trabalhador = async () => {
+    while (!falhou && proximo < tarefas.length) {
+      const tarefa = tarefas[proximo++];
+      try {
+        await enviarUm(tarefa.url, tarefa.arquivo);
+      } catch (e) {
+        falhou = true;
+        throw e;
+      }
+      feitos++;
+      definirStatus(`Enviando arquivos ${feitos} de ${tarefas.length}...`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, tarefas.length) }, trabalhador));
 }
 
 // Garante que existe um negócio salvo e um PDF gerado para os dados atuais.
@@ -118,16 +136,30 @@ async function garantirPdf(inputs, definirStatus) {
   if (!nome) return null;
   ultimoNome = nome;
 
-  definirStatus('Preparando arquivos...');
+  // Todas as fotos vão para o banco: reduzidas (1600 px) e com miniatura. As principais
+  // (até 4) são indicadas por posição e entram grandes no relatório.
   const fotos = [];
-  for (const item of arquivos.principais) fotos.push(await reduzirFoto(item.file));
+  const miniaturas = [];
+  for (let i = 0; i < arquivos.fotos.length; i++) {
+    definirStatus(`Preparando foto ${i + 1} de ${arquivos.fotos.length}...`);
+    const item = arquivos.fotos[i];
+    const reduzida = await reduzirFoto(item.file);
+    fotos.push(reduzida);
+    miniaturas.push(new File([item.miniaturaBlob], reduzida.name, { type: item.miniaturaBlob.type || 'image/jpeg' }));
+  }
+  const principais = arquivos.principais.map(item => arquivos.fotos.indexOf(item));
   const docs = arquivos.documentos;
 
+  definirStatus('Salvando o negócio...');
   const meta = a => a.map(f => ({ nome: f.name, tamanho: f.size }));
-  const criado = await chamarApi('/api/negocio', { nome, inputs, fotos: meta(fotos), documentos: meta(docs) });
+  const criado = await chamarApi('/api/negocio', { nome, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
 
-  await enviarArquivos(criado.uploads.fotos, fotos, definirStatus, 'foto');
-  await enviarArquivos(criado.uploads.documentos, docs, definirStatus, 'documento');
+  const tarefas = [];
+  const juntar = (lista, arquivosDaLista) => lista.forEach((u, i) => tarefas.push({ url: u.url, arquivo: arquivosDaLista[i] }));
+  juntar(criado.uploads.fotos, fotos);
+  juntar(criado.uploads.miniaturas, miniaturas);
+  juntar(criado.uploads.documentos, docs);
+  if (tarefas.length) await enviarTodos(tarefas, definirStatus);
 
   definirStatus('Gerando a folha de proposta...');
   const pdf = await chamarApi('/api/pdf', { id: criado.id });

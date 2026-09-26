@@ -157,5 +157,11 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 
 **Fotos: até 20 no aparelho, 4 principais no relatório**
 - O usuário adiciona até 20 fotos e toca nas que quer como principais (até 4, numeradas na ordem do toque, que também é a ordem no PDF). As 4 primeiras adicionadas já entram como principais.
-- Só as principais são reduzidas (1600 px) e enviadas ao servidor; as demais nunca saem do aparelho. O servidor continua validando no máximo 4 fotos.
-- A grade usa miniaturas de 240 px geradas no aparelho (evita decodificar 20 fotos de 12 MP no iPhone). Estado em js/arquivos.js (`arquivos.fotos` e `arquivos.principais`).
+- Estado em js/arquivos.js (`arquivos.fotos` e `arquivos.principais`). Miniaturas de 240 px são geradas no aparelho.
+
+**Fotos: todas no banco, miniaturas na página 1, 4 grandes no relatório (decisão final do usuário)**
+- Todas as fotos (até 20) são reduzidas a 1600 px e enviadas ao Storage, cada uma com sua miniatura (`<id>/fotos/`, `<id>/miniaturas/`). Envio em paralelo, 4 por vez.
+- `negocios.fotos` guarda todas (máx. 20), `miniaturas` segue a mesma ordem, `fotos_principais` guarda as até 4 escolhidas, na ordem (supabase/003_fotos_principais.sql). O cliente manda `principais` como posições em `fotos`.
+- PDF: página 1 com miniaturas de todas as fotos (colunas conforme a quantidade, 3:2 até 4 fotos e 16:9 acima disso), depois fotos grandes só das principais, 2 por página. Negócios antigos, sem miniaturas, continuam usando `fotos` para os dois usos.
+- Lista de documentos e rodapé ficam agrupados (`.fecho`, `break-inside: avoid`), para o rodapé nunca cair sozinho numa página em branco. Testado com 4, 7 e 20 fotos e até 5 documentos: a proposta fecha em 3 páginas.
+- Fotos de negócios salvos custam armazenamento (plano gratuito do Supabase: 1 GB). Cada foto reduzida pesa cerca de 200 a 450 KB.

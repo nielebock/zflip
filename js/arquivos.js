@@ -1,5 +1,4 @@
-// Fotos (até 20 no aparelho, 4 principais no relatório) e documentos do negócio.
-// Só as fotos principais são reduzidas e enviadas ao servidor.
+// Fotos (até 20, todas guardadas no banco; 4 principais entram grandes no relatório) e documentos.
 
 const MAX_FOTOS_ADICIONADAS = 20;
 const MAX_PRINCIPAIS = 4;
@@ -8,7 +7,7 @@ const LADO_MINIATURA = 240;
 const EXT_NO_PDF = ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'csv', 'md'];
 const LADO_MAX_FOTO = 1600;
 
-// fotos: [{ file, miniatura }] todas as adicionadas; principais: as escolhidas para o relatório, em ordem.
+// fotos: [{ file, miniaturaBlob, miniatura }] todas as adicionadas (miniatura é a URL para exibir); principais: as escolhidas para o relatório, em ordem.
 const arquivos = { fotos: [], principais: [], documentos: [] };
 let avisoFotos = '';
 let aoMudarArquivos = () => {};
@@ -96,7 +95,8 @@ function renderFotos() {
   });
 }
 
-// Miniatura pequena para a grade: com até 20 fotos de 12 MP, decodificar as originais pesaria demais no celular.
+// Miniatura pequena (JPEG): serve para a grade da tela e para a página 1 do relatório.
+// Com até 20 fotos de 12 MP, decodificar as originais na grade pesaria demais no celular.
 async function criarMiniatura(file) {
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -107,9 +107,9 @@ async function criarMiniatura(file) {
     canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
     bmp.close();
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
-    if (blob) return URL.createObjectURL(blob);
+    if (blob) return blob;
   } catch { /* usa o arquivo original abaixo */ }
-  return URL.createObjectURL(file);
+  return file;
 }
 
 function renderDocumentos() {
@@ -145,7 +145,10 @@ fotosInput.addEventListener('change', async () => {
   const novas = escolhidas.slice(0, Math.max(0, vagas));
   avisoFotos = escolhidas.length > novas.length
     ? `Limite de ${MAX_FOTOS_ADICIONADAS} fotos. ${escolhidas.length - novas.length} não foram adicionadas.` : '';
-  const itens = await Promise.all(novas.map(async file => ({ file, miniatura: await criarMiniatura(file) })));
+  const itens = await Promise.all(novas.map(async file => {
+    const miniaturaBlob = await criarMiniatura(file);
+    return { file, miniaturaBlob, miniatura: URL.createObjectURL(miniaturaBlob) };
+  }));
   for (const item of itens) {
     arquivos.fotos.push(item);
     if (arquivos.principais.length < MAX_PRINCIPAIS) arquivos.principais.push(item); // as primeiras já entram como principais
@@ -162,7 +165,7 @@ docsInput.addEventListener('change', () => {
 });
 
 // Reduz a foto para no máximo 1600 px no maior lado, em JPEG. Fotos de celular
-// passam de 5 MB, e o PDF final embute as fotos principais.
+// passam de 5 MB, e o PDF final embute as fotos principais em página inteira.
 async function reduzirFoto(file) {
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });

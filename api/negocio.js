@@ -3,7 +3,8 @@ import { json, erro, lerJson } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
 import { calcularZFlip } from './_lib/motor.js';
 
-const MAX_FOTOS = 4;
+const MAX_FOTOS = 20;
+const MAX_PRINCIPAIS = 4;
 const MAX_DOCUMENTOS = 30;
 const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -38,6 +39,17 @@ function validarArquivos(lista, max, rotulo) {
   return null;
 }
 
+// principais: posições (em `fotos`) das até 4 fotos que entram grandes no relatório, na ordem escolhida.
+function validarPrincipais(principais, totalFotos) {
+  if (!Array.isArray(principais) || principais.length > MAX_PRINCIPAIS) return `Escolha no máximo ${MAX_PRINCIPAIS} fotos principais`;
+  const vistos = new Set();
+  for (const i of principais) {
+    if (!Number.isInteger(i) || i < 0 || i >= totalFotos || vistos.has(i)) return 'Fotos principais inválidas';
+    vistos.add(i);
+  }
+  return null;
+}
+
 // Nome seguro para o Storage, mantendo legível o nome original.
 function nomeSeguro(nome) {
   const limpo = nome.normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -50,18 +62,20 @@ function nomeSeguro(nome) {
 export async function POST(request) {
   const body = await lerJson(request);
   if (!body) return erro('Corpo da requisição inválido');
-  const { inputs, fotos = [], documentos = [] } = body;
+  const { inputs, fotos = [], documentos = [], principais = [] } = body;
   const nome = typeof body.nome === 'string' ? body.nome.trim() : '';
   if (!nome || nome.length > 80) return erro('Informe o nome do imóvel ou projeto (até 80 caracteres)');
 
   const falha = validarInputs(inputs)
     || validarArquivos(fotos, MAX_FOTOS, 'fotos')
-    || validarArquivos(documentos, MAX_DOCUMENTOS, 'documentos');
+    || validarArquivos(documentos, MAX_DOCUMENTOS, 'documentos')
+    || validarPrincipais(principais, fotos.length);
   if (falha) return erro(falha);
 
   const { conta1, conta2 } = calcularZFlip(inputs);
   const id = randomUUID();
   const caminhosFotos = fotos.map((f, n) => `${id}/fotos/${n + 1}-${nomeSeguro(f.nome)}`);
+  const caminhosMiniaturas = fotos.map((f, n) => `${id}/miniaturas/${n + 1}-${nomeSeguro(f.nome)}`);
   const caminhosDocs = documentos.map((d, n) => `${id}/documentos/${n + 1}-${nomeSeguro(d.nome)}`);
 
   const sb = supabaseAdmin();
@@ -85,6 +99,8 @@ export async function POST(request) {
     resultado_conta_direta: conta1,
     resultado_conta_reversa: conta2,
     fotos: caminhosFotos,
+    miniaturas: caminhosMiniaturas,
+    fotos_principais: principais.map(i => caminhosFotos[i]),
     documentos: caminhosDocs,
   });
   if (erroInsert) {
@@ -101,6 +117,7 @@ export async function POST(request) {
   try {
     const uploads = {
       fotos: await Promise.all(caminhosFotos.map(assinar)),
+      miniaturas: await Promise.all(caminhosMiniaturas.map(assinar)),
       documentos: await Promise.all(caminhosDocs.map(assinar)),
     };
     return json({ id, uploads, resultado: { conta1, conta2 } });
