@@ -73,7 +73,7 @@ export async function POST(request) {
       await browser.close();
     }
 
-    const caminho = `${negocio.id}/proposta-zflip.pdf`;
+    const caminho = `${negocio.id}/${nomeDeArquivo(negocio)}.pdf`;
     const { error: erroUpload } = await sb.storage.from(BUCKET)
       .upload(caminho, pdf, { contentType: 'application/pdf', upsert: true });
     if (erroUpload) throw erroUpload;
@@ -81,7 +81,7 @@ export async function POST(request) {
     await sb.from('negocios').update({ pdf_path: caminho }).eq('id', negocio.id);
 
     const { data: link, error: erroLink } = await sb.storage.from(BUCKET)
-      .createSignedUrl(caminho, VALIDADE_LINK, { download: `${nomeDeArquivo(negocio)}.pdf` });
+      .createSignedUrl(caminho, VALIDADE_LINK);
     if (erroLink) throw erroLink;
 
     return json({ id: negocio.id, url: link.signedUrl });

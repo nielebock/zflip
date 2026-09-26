@@ -5,9 +5,44 @@
 let negocioAtual = null; // { id, nome, urlPdf }, descartado quando os dados mudam
 let ultimoNome = '';
 
+const painelPronto = document.getElementById('pronto');
+const linkPdf = document.getElementById('link-pdf');
+
 function invalidarNegocio() {
   negocioAtual = null;
+  painelPronto.hidden = true;
 }
+
+// Depois de esperar o servidor, o navegador do celular já não considera o toque
+// original e bloqueia window.open. Por isso o PDF pronto é aberto por um link
+// que o usuário toca, e o arquivo é baixado antes para o compartilhamento ser imediato.
+function mostrarPronto(negocio) {
+  linkPdf.href = negocio.urlPdf;
+  painelPronto.hidden = false;
+  if (!negocio.arquivo && !negocio.baixando) {
+    negocio.baixando = true;
+    baixarPdf(negocio).then(f => { negocio.arquivo = f; }).catch(() => {}).finally(() => { negocio.baixando = false; });
+  }
+}
+
+async function compartilharPdf() {
+  const negocio = negocioAtual;
+  if (!negocio) return;
+  const arquivo = negocio.arquivo;
+  if (arquivo && navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+    try {
+      await navigator.share({ files: [arquivo], title: negocio.nome });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      // outro erro: segue para o link do WhatsApp
+    }
+  }
+  const texto = `Proposta de flip imobiliário, ${negocio.nome}: ${negocio.urlPdf}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+}
+
+document.getElementById('btn-compartilhar').addEventListener('click', compartilharPdf);
 
 function nomeDeArquivo(nome) {
   const base = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -109,13 +144,14 @@ async function baixarPdf(negocio) {
 async function acaoGerarPdf(inputs, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
   if (!negocio) return definirStatus('');
-  window.open(negocio.urlPdf, '_blank');
-  definirStatus(`PDF de "${negocio.nome}" gerado. Se não abriu, permita pop-ups neste site.`, 'ok');
+  mostrarPronto(negocio);
+  definirStatus(`PDF de "${negocio.nome}" pronto. Toque em Abrir PDF.`, 'ok');
 }
 
 async function acaoEnviarEmail(inputs, para, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
   if (!negocio) return definirStatus('');
+  mostrarPronto(negocio);
   definirStatus('Enviando e-mail...');
   await chamarApi('/api/email', { id: negocio.id, para });
   definirStatus(`E-mail com "${negocio.nome}" enviado para ${para}.`, 'ok');
@@ -124,18 +160,8 @@ async function acaoEnviarEmail(inputs, para, definirStatus) {
 async function acaoEnviarWhatsApp(inputs, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
   if (!negocio) return definirStatus('');
-  const arquivo = await baixarPdf(negocio);
-  if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
-    try {
-      await navigator.share({ files: [arquivo], title: negocio.nome });
-      definirStatus('Proposta compartilhada.', 'ok');
-      return;
-    } catch (err) {
-      if (err && err.name === 'AbortError') { definirStatus(''); return; }
-      // outro erro (por exemplo, gesto do usuário expirado): segue para o link
-    }
-  }
-  const texto = `Proposta de flip imobiliário, ${negocio.nome}: ${negocio.urlPdf}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
-  definirStatus('WhatsApp aberto com o link do PDF.', 'ok');
+  definirStatus('Preparando o arquivo...');
+  if (!negocio.arquivo) negocio.arquivo = await baixarPdf(negocio);
+  mostrarPronto(negocio);
+  definirStatus(`PDF de "${negocio.nome}" pronto. Toque em Compartilhar PDF para enviar pelo WhatsApp.`, 'ok');
 }

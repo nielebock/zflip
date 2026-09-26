@@ -147,3 +147,9 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - Relato: só resumo e fotos, sem as páginas dos documentos. Causa: o teste usou um `.txt`, formato que ainda só era listado. PDF e PNG já funcionavam (conferido nos PDFs gerados no teste anterior).
 - Agora TXT, CSV e MD entram como páginas de texto. A tela avisa por arquivo se "entra no PDF" ou "só listado", e o PDF diferencia "Somente listado" (formato não suportado) de "Não foi possível incluir" (falha ao abrir).
 - Não testado: o PDF real "CertidaoPermanente" do usuário (arquivo não encontrado na máquina). PDFs criptografados ou com assinatura digital podem falhar no pdf-lib e aparecer como "Não foi possível incluir". Se acontecer, avaliar outra biblioteca ou orientar a reexportar o PDF.
+
+**PDF não abria no iPhone (2026-09-26, noite)**
+- Causa: `window.open` era chamado depois de ~10 s de espera pelo servidor; o Safari do iPhone deixa de tratar aquilo como resultado de um toque e bloqueia. Não existe configuração de pop-up para o usuário resolver.
+- Agora, depois de gerar, aparece um painel com o botão Abrir PDF (link real, nunca bloqueado) e o botão Compartilhar PDF (folha de compartilhamento com o arquivo; sem suporte, abre wa.me com o link). O arquivo é baixado antes, para o compartilhamento ser imediato ao toque.
+- O PDF passou a ser salvo como `<id>/proposta-<nome-do-imovel>.pdf`, e o link abre no visualizador (sem `download` forçado), então o nome do arquivo já sai correto. Linhas antigas continuam com `proposta-zflip.pdf`.
+- E-mail: só é usado no botão Enviar por e-mail. Com o remetente de teste (onboarding@resend.dev), o Resend só entrega ao e-mail dono da conta.
