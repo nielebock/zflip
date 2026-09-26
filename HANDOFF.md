@@ -153,3 +153,4 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - Agora, depois de gerar, aparece um painel com o botão Abrir PDF (link real, nunca bloqueado) e o botão Compartilhar PDF (folha de compartilhamento com o arquivo; sem suporte, abre wa.me com o link). O arquivo é baixado antes, para o compartilhamento ser imediato ao toque.
 - O PDF passou a ser salvo como `<id>/proposta-<nome-do-imovel>.pdf`, e o link abre no visualizador (sem `download` forçado), então o nome do arquivo já sai correto. Linhas antigas continuam com `proposta-zflip.pdf`.
 - E-mail: só é usado no botão Enviar por e-mail. Com o remetente de teste (onboarding@resend.dev), o Resend só entrega ao e-mail dono da conta.
+- Campo de e-mail vem preenchido com nielebock@gmail.com (único destinatário aceito pelo remetente de teste do Resend). Quando o domínio da Zuri for verificado e RESEND_FROM definido, remover o valor padrão de `#email_destino` em index.html.
