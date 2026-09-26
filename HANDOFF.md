@@ -154,3 +154,8 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - O PDF passou a ser salvo como `<id>/proposta-<nome-do-imovel>.pdf`, e o link abre no visualizador (sem `download` forçado), então o nome do arquivo já sai correto. Linhas antigas continuam com `proposta-zflip.pdf`.
 - E-mail: só é usado no botão Enviar por e-mail. Com o remetente de teste (onboarding@resend.dev), o Resend só entrega ao e-mail dono da conta.
 - Campo de e-mail vem preenchido com nielebock@gmail.com (único destinatário aceito pelo remetente de teste do Resend). Quando o domínio da Zuri for verificado e RESEND_FROM definido, remover o valor padrão de `#email_destino` em index.html.
+
+**Fotos: até 20 no aparelho, 4 principais no relatório**
+- O usuário adiciona até 20 fotos e toca nas que quer como principais (até 4, numeradas na ordem do toque, que também é a ordem no PDF). As 4 primeiras adicionadas já entram como principais.
+- Só as principais são reduzidas (1600 px) e enviadas ao servidor; as demais nunca saem do aparelho. O servidor continua validando no máximo 4 fotos.
+- A grade usa miniaturas de 240 px geradas no aparelho (evita decodificar 20 fotos de 12 MP no iPhone). Estado em js/arquivos.js (`arquivos.fotos` e `arquivos.principais`).

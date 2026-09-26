@@ -226,7 +226,14 @@ footer {
 
 .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .thumbs:empty { display: none; }
-.thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--input-bg); }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--input-bg); cursor: pointer; border: 3px solid transparent; opacity: .6; }
+.thumb.sel { border-color: var(--accent); opacity: 1; }
+.thumb:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.ordem {
+  position: absolute; left: 4px; bottom: 4px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: var(--accent); color: #06210f;
+  font-size: 13px; font-weight: 700; line-height: 22px; text-align: center;
+}
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .remover {
   position: absolute; top: 4px; right: 4px;
@@ -266,6 +273,7 @@ button:disabled { opacity: .55; cursor: progress; }
 .field .btn-arquivo:active { background: #273449; }
 .contagem { margin: 0; font-size: 13px; color: var(--text-dim); }
 .contagem.tem { color: var(--accent); }
+.contagem.alerta { color: #f59e0b; }
 .dlg {
   border: 1px solid var(--card-border); border-radius: var(--radius);
   background: var(--card-bg); color: var(--text);

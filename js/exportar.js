@@ -120,7 +120,7 @@ async function garantirPdf(inputs, definirStatus) {
 
   definirStatus('Preparando arquivos...');
   const fotos = [];
-  for (const f of arquivos.fotos) fotos.push(await reduzirFoto(f));
+  for (const item of arquivos.principais) fotos.push(await reduzirFoto(item.file));
   const docs = arquivos.documentos;
 
   const meta = a => a.map(f => ({ nome: f.name, tamanho: f.size }));

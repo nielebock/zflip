@@ -1,11 +1,16 @@
-// Seleção de fotos (até 4, redimensionadas no celular) e documentos do negócio.
+// Fotos (até 20 no aparelho, 4 principais no relatório) e documentos do negócio.
+// Só as fotos principais são reduzidas e enviadas ao servidor.
 
-const MAX_FOTOS = 4;
+const MAX_FOTOS_ADICIONADAS = 20;
+const MAX_PRINCIPAIS = 4;
+const LADO_MINIATURA = 240;
 // Formatos que entram no PDF como páginas; os demais ficam só listados na página 1.
 const EXT_NO_PDF = ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'csv', 'md'];
 const LADO_MAX_FOTO = 1600;
 
-const arquivos = { fotos: [], documentos: [] };
+// fotos: [{ file, miniatura }] todas as adicionadas; principais: as escolhidas para o relatório, em ordem.
+const arquivos = { fotos: [], principais: [], documentos: [] };
+let avisoFotos = '';
 let aoMudarArquivos = () => {};
 
 const fotosInput = document.getElementById('fotos');
@@ -25,28 +30,86 @@ function botaoRemover(rotulo, aoClicar) {
   return b;
 }
 
-function renderFotos() {
+function textoContagemFotos() {
   const n = arquivos.fotos.length;
-  fotosContagem.textContent = n === 0 ? 'Nenhuma foto adicionada'
-    : n >= MAX_FOTOS ? `${n} de ${MAX_FOTOS} fotos adicionadas (limite atingido)`
-    : `${n} de ${MAX_FOTOS} fotos adicionadas`;
-  fotosContagem.classList.toggle('tem', n > 0);
+  const k = arquivos.principais.length;
+  if (n === 0) return 'Nenhuma foto adicionada';
+  const total = n === 1 ? '1 foto adicionada' : `${n} fotos adicionadas`;
+  return `${total}, ${k} de ${MAX_PRINCIPAIS} principais no relatório`;
+}
+
+function alternarPrincipal(item) {
+  const pos = arquivos.principais.indexOf(item);
+  if (pos >= 0) {
+    arquivos.principais.splice(pos, 1);
+    avisoFotos = '';
+  } else if (arquivos.principais.length < MAX_PRINCIPAIS) {
+    arquivos.principais.push(item);
+    avisoFotos = '';
+  } else {
+    avisoFotos = `Já há ${MAX_PRINCIPAIS} fotos principais. Toque em uma selecionada para desmarcar antes de escolher outra.`;
+  }
+  renderFotos();
+  aoMudarArquivos();
+}
+
+function removerFoto(item) {
+  arquivos.fotos.splice(arquivos.fotos.indexOf(item), 1);
+  const pos = arquivos.principais.indexOf(item);
+  if (pos >= 0) arquivos.principais.splice(pos, 1);
+  URL.revokeObjectURL(item.miniatura);
+  avisoFotos = '';
+  renderFotos();
+  aoMudarArquivos();
+}
+
+function renderFotos() {
+  fotosContagem.textContent = avisoFotos || textoContagemFotos();
+  fotosContagem.classList.toggle('tem', arquivos.fotos.length > 0 && !avisoFotos);
+  fotosContagem.classList.toggle('alerta', !!avisoFotos);
   fotosPreview.innerHTML = '';
-  arquivos.fotos.forEach((file, i) => {
+  arquivos.fotos.forEach(item => {
+    const ordem = arquivos.principais.indexOf(item) + 1; // 0 quando não é principal
     const box = document.createElement('div');
-    box.className = 'thumb';
+    box.className = 'thumb' + (ordem ? ' sel' : '');
+    box.setAttribute('role', 'button');
+    box.setAttribute('tabindex', '0');
+    box.setAttribute('aria-pressed', ordem ? 'true' : 'false');
+    box.setAttribute('aria-label', ordem ? `Foto principal ${ordem}: ${item.file.name}` : `Marcar como principal: ${item.file.name}`);
+    box.addEventListener('click', () => alternarPrincipal(item));
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternarPrincipal(item); }
+    });
     const img = document.createElement('img');
-    img.alt = file.name;
-    img.src = URL.createObjectURL(file);
-    img.onload = () => URL.revokeObjectURL(img.src);
+    img.alt = '';
+    img.src = item.miniatura;
     box.appendChild(img);
-    box.appendChild(botaoRemover(`Remover foto ${file.name}`, () => {
-      arquivos.fotos.splice(i, 1);
-      renderFotos();
-      aoMudarArquivos();
-    }));
+    if (ordem) {
+      const marca = document.createElement('span');
+      marca.className = 'ordem';
+      marca.textContent = ordem;
+      box.appendChild(marca);
+    }
+    const x = botaoRemover(`Remover foto ${item.file.name}`, e => { e.stopPropagation(); removerFoto(item); });
+    box.appendChild(x);
     fotosPreview.appendChild(box);
   });
+}
+
+// Miniatura pequena para a grade: com até 20 fotos de 12 MP, decodificar as originais pesaria demais no celular.
+async function criarMiniatura(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const escala = Math.min(1, LADO_MINIATURA / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bmp.width * escala));
+    canvas.height = Math.max(1, Math.round(bmp.height * escala));
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+    if (blob) return URL.createObjectURL(blob);
+  } catch { /* usa o arquivo original abaixo */ }
+  return URL.createObjectURL(file);
 }
 
 function renderDocumentos() {
@@ -75,10 +138,18 @@ function renderDocumentos() {
   });
 }
 
-fotosInput.addEventListener('change', () => {
-  const novas = Array.from(fotosInput.files).filter(f => f.type.startsWith('image/'));
-  arquivos.fotos = arquivos.fotos.concat(novas).slice(0, MAX_FOTOS);
+fotosInput.addEventListener('change', async () => {
+  const escolhidas = Array.from(fotosInput.files).filter(f => f.type.startsWith('image/'));
   fotosInput.value = '';
+  const vagas = MAX_FOTOS_ADICIONADAS - arquivos.fotos.length;
+  const novas = escolhidas.slice(0, Math.max(0, vagas));
+  avisoFotos = escolhidas.length > novas.length
+    ? `Limite de ${MAX_FOTOS_ADICIONADAS} fotos. ${escolhidas.length - novas.length} não foram adicionadas.` : '';
+  const itens = await Promise.all(novas.map(async file => ({ file, miniatura: await criarMiniatura(file) })));
+  for (const item of itens) {
+    arquivos.fotos.push(item);
+    if (arquivos.principais.length < MAX_PRINCIPAIS) arquivos.principais.push(item); // as primeiras já entram como principais
+  }
   renderFotos();
   aoMudarArquivos();
 });
@@ -91,7 +162,7 @@ docsInput.addEventListener('change', () => {
 });
 
 // Reduz a foto para no máximo 1600 px no maior lado, em JPEG. Fotos de celular
-// passam de 5 MB, e o PDF final embute as quatro fotos.
+// passam de 5 MB, e o PDF final embute as fotos principais.
 async function reduzirFoto(file) {
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
