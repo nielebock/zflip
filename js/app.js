@@ -56,7 +56,7 @@ function readInputs() {
 }
 
 function fmtEuro(v) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }).format(v);
 }
 
 function fmtPct(v) {
@@ -98,7 +98,7 @@ function renderResults(result, inputs) {
 
     const tdInformado = document.createElement('td');
     if (!conta1) {
-      tdInformado.textContent = '—';
+      tdInformado.textContent = 'Não informado';
     } else if (row.isento && !inputs.aplicar_imt) {
       tdInformado.textContent = 'Isento';
     } else {
@@ -135,7 +135,7 @@ function renderMarginViz(precoInformado, precoMaximo) {
   const label = document.createElement('p');
   label.className = 'margin-label ' + (abaixo ? 'positive' : 'negative');
   label.textContent = abaixo
-    ? `Preço informado está ${fmtEuro(Math.abs(diff))} (${fmtPct(Math.abs(diffPct))}) ABAIXO do máximo — margem de segurança`
+    ? `Preço informado está ${fmtEuro(Math.abs(diff))} (${fmtPct(Math.abs(diffPct))}) ABAIXO do máximo, com margem de segurança`
     : `Preço informado está ${fmtEuro(Math.abs(diff))} (${fmtPct(Math.abs(diffPct))}) ACIMA do máximo para o ROI alvo`;
   wrap.appendChild(label);
 
@@ -175,41 +175,50 @@ form.addEventListener('submit', (e) => {
   const result = calcularZFlip(inputs);
   lastResult = result;
   lastInputs = inputs;
+  invalidarNegocio();
+  definirStatus('');
   renderResults(result, inputs);
 });
 
-document.getElementById('btn-pdf').addEventListener('click', () => {
+const statusEl = document.getElementById('status');
+const botoesExport = ['btn-pdf', 'btn-email', 'btn-whatsapp'].map(id => document.getElementById(id));
+const emailInput = document.getElementById('email_destino');
+
+function definirStatus(msg, tipo) {
+  statusEl.hidden = !msg;
+  statusEl.textContent = msg || '';
+  statusEl.className = 'status' + (tipo ? ' ' + tipo : '');
+}
+
+async function executarExport(acao) {
   if (!lastResult) return;
-  gerarPdfProposta(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
+  botoesExport.forEach(b => { b.disabled = true; });
+  try {
+    await acao();
+  } catch (err) {
+    definirStatus(err.message || 'Algo deu errado. Tente de novo.', 'erro');
+  } finally {
+    botoesExport.forEach(b => { b.disabled = false; });
+  }
+}
+
+aoMudarArquivos = invalidarNegocio;
+
+document.getElementById('btn-pdf').addEventListener('click', () =>
+  executarExport(() => acaoGerarPdf(lastInputs, definirStatus)));
+
+document.getElementById('btn-email').addEventListener('click', () => {
+  const para = emailInput.value.trim();
+  if (!emailInput.checkValidity() || !para) {
+    definirStatus('Informe um e-mail válido do destinatário.', 'erro');
+    emailInput.focus();
+    return;
+  }
+  executarExport(() => acaoEnviarEmail(lastInputs, para, definirStatus));
 });
 
-document.getElementById('btn-email').addEventListener('click', async () => {
-  if (!lastResult) return;
-  const blob = await gerarPdfBlob(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
-  const file = new File([blob], 'proposta-zflip.pdf', { type: 'application/pdf' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Proposta ZFlip', text: 'Proposta de flip imobiliário — Zuri Real Estate' });
-      return;
-    } catch (err) { /* fallback abaixo */ }
-  }
-  const url = URL.createObjectURL(blob);
-  window.location.href = `mailto:?subject=Proposta%20ZFlip&body=Segue%20proposta%20de%20flip%20imobiliário%20em%20anexo.`;
-  window.open(url, '_blank');
-});
-
-document.getElementById('btn-whatsapp').addEventListener('click', async () => {
-  if (!lastResult) return;
-  const blob = await gerarPdfBlob(lastResult, lastInputs, ROWS, { fmtEuro, fmtPct });
-  const file = new File([blob], 'proposta-zflip.pdf', { type: 'application/pdf' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Proposta ZFlip', text: 'Proposta de flip imobiliário — Zuri Real Estate' });
-      return;
-    } catch (err) { /* fallback abaixo */ }
-  }
-  window.open('https://wa.me/?text=Proposta%20de%20flip%20imobili%C3%A1rio%20-%20Zuri%20Real%20Estate', '_blank');
-});
+document.getElementById('btn-whatsapp').addEventListener('click', () =>
+  executarExport(() => acaoEnviarWhatsApp(lastInputs, definirStatus)));
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

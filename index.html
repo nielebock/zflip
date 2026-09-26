@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>ZFlip — Zuri Real Estate</title>
+<title>ZFlip, Zuri Real Estate</title>
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -15,7 +15,7 @@
   <img src="icons/icon.svg" class="logo" alt="Zuri">
   <div>
     <h1>ZFlip</h1>
-    <p class="subtitle">Calculadora de Flip Imobiliário — Zuri Real Estate</p>
+    <p class="subtitle">Calculadora de Flip Imobiliário da Zuri Real Estate</p>
   </div>
 </header>
 
@@ -29,7 +29,7 @@
       </div>
 
       <div class="field">
-        <label for="preco_compra">Preço de compra (€) — opcional</label>
+        <label for="preco_compra">Preço de compra (€), opcional</label>
         <input type="number" id="preco_compra" name="preco_compra" min="0" step="0.01">
       </div>
 
@@ -99,6 +99,18 @@
         <input type="number" id="imi_anual_pct" name="imi_anual_pct" min="0" step="0.01" value="0.32">
       </div>
 
+      <div class="field field-wide">
+        <label for="fotos">Fotos do imóvel (até 4)</label>
+        <input type="file" id="fotos" accept="image/*" multiple>
+        <div id="fotos-preview" class="thumbs"></div>
+      </div>
+
+      <div class="field field-wide">
+        <label for="documentos">Documentos associados (caderneta, certidão, plantas, avaliação)</label>
+        <input type="file" id="documentos" multiple>
+        <ul id="documentos-lista" class="lista-docs"></ul>
+      </div>
+
       <button type="submit" class="btn-primary">Calcular</button>
     </form>
   </section>
@@ -120,11 +132,17 @@
 
     <div id="margin-viz" class="margin-viz"></div>
 
-    <div class="export-actions">
-      <button id="btn-pdf" class="btn-secondary">Gerar PDF</button>
-      <button id="btn-email" class="btn-secondary">Enviar por e-mail</button>
-      <button id="btn-whatsapp" class="btn-secondary">Enviar por WhatsApp</button>
+    <div class="field email-field">
+      <label for="email_destino">E-mail do destinatário</label>
+      <input type="email" id="email_destino" placeholder="nome@exemplo.com" autocomplete="email" inputmode="email">
     </div>
+
+    <div class="export-actions">
+      <button type="button" id="btn-pdf" class="btn-secondary">Gerar PDF</button>
+      <button type="button" id="btn-email" class="btn-secondary">Enviar por e-mail</button>
+      <button type="button" id="btn-whatsapp" class="btn-secondary">Enviar por WhatsApp</button>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite" hidden></p>
   </section>
 </main>
 
@@ -132,10 +150,11 @@
   <p>Zuri Real Estate · ZFlip</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="js/imt.js"></script>
 <script src="js/engine.js"></script>
-<script src="js/pdf.js"></script>
+<script src="js/arquivos.js"></script>
+<script src="js/exportar.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

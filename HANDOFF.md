@@ -1,6 +1,6 @@
 # Handoff: ZFlip — Calculadora de Flip Imobiliário
 
-**Data:** 2026-09-16
+**Data:** 2026-09-26 (atualizado; versão original de 2026-09-16)
 **Status:** em produção, funcional — pendente uma decisão de fórmula e possíveis melhorias de UI/UX
 
 ---
@@ -14,7 +14,7 @@ Especificação original: documento `zflip_spec_claude_code.md` fornecido pelo u
 ## 2. Stack e infraestrutura
 
 - **Código:** HTML + CSS + JS vanilla, sem build step
-- **PDF:** jsPDF via CDN (jsdelivr)
+- **PDF:** gerado no servidor (api/pdf.js, Puppeteer + @sparticuz/chromium). O jsPDF foi removido
 - **PWA:** manifest.json + service worker (`sw.js`, estratégia network-first)
 - **Repositório:** `github.com/nielebock/zflip`, branch `main` (repositório próprio, separado do `imobiliario-system`)
 - **Deploy:** Vercel, plano Hobby (gratuito), conta "Carlos Nielebock's projects" (`team_8QM8psMHncP11bluZYMqN9KG`)
@@ -88,3 +88,45 @@ Se decidir incluir, a mudança é em `js/engine.js`, função `calcularPrecoMaxi
 - Spec original: `zflip_spec_claude_code.md` (anexado pelo usuário na sessão anterior)
 - Planilha de validação: `Arjon_BP_COSMIKVARIETY_v17.xlsx`, abas `01_PREMISSAS`, `02_ECONOMIA_NEGOCIO`, `07_IMT_2026`
 - Este repositório é independente do `imobiliario-system` (motor de avaliação de projetos imobiliários) — projetos sem relação, mesma conta GitHub/Vercel do usuário.
+
+## 8. Sessão 2026-09-26: backend implementado (Supabase, uploads, PDF no servidor, e-mail, WhatsApp)
+
+Implementado o que a spec pedia e ainda não existia.
+
+**Estrutura nova**
+```
+api/
+  config.js      GET: devolve SUPABASE_URL e Publishable key ao navegador
+  negocio.js     POST: valida, calcula no servidor, salva em `negocios`, devolve URLs assinadas de upload
+  pdf.js         POST: monta o HTML ZURI, Chromium converte em PDF, salva no Storage, devolve link assinado (7 dias)
+  email.js       POST: baixa o PDF do Storage e envia pelo Resend com anexo
+  _lib/          supabase.js (cliente com Secret key), motor.js, proposta.js (template), http.js
+js/arquivos.js   seleção de fotos (até 4, reduzidas a 1600 px no celular) e documentos
+js/exportar.js   fluxo: salvar negócio, enviar arquivos direto ao Storage, gerar PDF, e-mail, WhatsApp
+supabase/001_negocios.sql   tabela e bucket (já aplicado no projeto ZFlipDB)
+vercel.json      memória 2048 MB e 60 s para api/pdf.js
+```
+
+**Decisões técnicas**
+- Uploads vão do celular direto ao Storage por URL assinada, porque a Vercel limita o corpo da requisição a 4,5 MB e fotos de celular passam disso. A Secret key nunca sai do servidor.
+- O servidor recalcula tudo com o mesmo `js/imt.js` e `js/engine.js` do navegador (api/_lib/motor.js), então não existe segunda cópia das fórmulas.
+- Percentuais são guardados como fração (0.05 = 5%). Em `remodelacao_valor_ou_pct`: fração no modo pct, euros no modo fixo.
+- Tabela `negocios` com RLS ativo e nenhuma política. Bucket `documentos-negocios` privado. Confirmado: a chave pública lê zero linhas.
+- Variáveis na Vercel: SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY (todos os ambientes), SUPABASE_SECRET_KEY e RESEND_API_KEY (Production e Preview, tipo Secret).
+- Service worker passou a ignorar `/api/` e o cache subiu para v3.
+
+**Verificado**
+- Fluxo completo local e em deploy de preview: negócio, upload, PDF, e-mail (para delivered@resend.dev), validações e RLS.
+- Chromium serverless gera o PDF em cerca de 8 s a frio. Casos limite: sem preço de compra, IMT desligado, prazo 0, remodelação fixa.
+- Interface no Chrome, sem erros de página.
+
+**Ainda não verificado**
+- Compartilhamento por WhatsApp em aparelho real (Web Share com arquivo). Sem suporte, abre wa.me com o link assinado do PDF.
+- E-mail para destinatários reais: o remetente onboarding@resend.dev só entrega ao dono da conta Resend até o domínio da Zuri ser verificado. Depois, definir RESEND_FROM na Vercel.
+
+**Pendências**
+- [ ] Apagar os dados de teste do banco (4 linhas em `negocios` e arquivos no bucket), ver mensagem da sessão
+- [ ] Verificar domínio da Zuri no Resend e definir RESEND_FROM
+- [ ] Rotacionar as chaves do Supabase e do Resend, pois foram coladas em uma conversa
+- [ ] Testar WhatsApp e PDF em iPhone e Android
+- [ ] Decidir sobre o desconto de condomínio (seção 4) continua em aberto

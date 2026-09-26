@@ -68,6 +68,7 @@ form {
   gap: 6px;
 }
 
+.field-wide { grid-column: 1 / -1; }
 .field label { font-size: 12.5px; color: var(--text-dim); }
 
 .field input {
@@ -214,3 +215,28 @@ footer {
 @media (max-width: 520px) {
   form { grid-template-columns: 1fr; }
 }
+
+.thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--input-bg); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.remover {
+  position: absolute; top: 4px; right: 4px;
+  width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: rgba(15, 23, 42, .8); color: #fff; font-size: 16px; line-height: 1; cursor: pointer;
+}
+.lista-docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lista-docs:empty { display: none; }
+.lista-docs li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: var(--text);
+}
+.lista-docs .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista-docs .remover { position: static; flex: none; }
+.email-field { margin-top: 20px; }
+.status { margin: 12px 0 0; font-size: 13.5px; color: var(--text-dim); }
+.status.erro { color: var(--danger); }
+.status.ok { color: var(--accent); }
+.status a { color: inherit; }
+button:disabled { opacity: .55; cursor: progress; }

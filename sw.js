@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zflip-v2';
+const CACHE_NAME = 'zflip-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const ASSETS = [
   './js/app.js',
   './js/engine.js',
   './js/imt.js',
-  './js/pdf.js',
+  './js/arquivos.js',
+  './js/exportar.js',
   './manifest.json',
   './icons/icon.svg',
 ];
@@ -28,7 +29,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET' || new URL(event.request.url).pathname.startsWith('/api/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
