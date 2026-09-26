@@ -2,7 +2,7 @@ import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
-import { renderProposta } from './_lib/proposta.js';
+import { renderProposta, renderTexto } from './_lib/proposta.js';
 import { nomeDoCaminho, prepararAnexos, juntar } from './_lib/anexos.js';
 import { nomeDeArquivo } from './_lib/nome.js';
 
@@ -38,15 +38,15 @@ async function baixarBytes(sb, caminho) {
   return new Uint8Array(await data.arrayBuffer());
 }
 
-async function gerarPdf(html) {
-  const browser = await abrirNavegador();
+// Converte HTML em PDF numa página nova do navegador já aberto.
+async function htmlParaPdf(browser, html) {
+  const page = await browser.newPage();
   try {
-    const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 20000 });
     await page.evaluate(() => document.fonts.ready);
     return await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
   } finally {
-    await browser.close();
+    await page.close();
   }
 }
 
@@ -64,8 +64,14 @@ export async function POST(request) {
       nome: nomeDoCaminho(c),
       bytes: await baixarBytes(sb, c),
     })));
-    const { anexos, docs } = await prepararAnexos(arquivos);
-    const pdf = await juntar(await gerarPdf(renderProposta(negocio, fotos, docs)), anexos);
+    const browser = await abrirNavegador();
+    let pdf;
+    try {
+      const { anexos, docs } = await prepararAnexos(arquivos, (nome, texto) => htmlParaPdf(browser, renderTexto(nome, texto)));
+      pdf = await juntar(await htmlParaPdf(browser, renderProposta(negocio, fotos, docs)), anexos);
+    } finally {
+      await browser.close();
+    }
 
     const caminho = `${negocio.id}/proposta-zflip.pdf`;
     const { error: erroUpload } = await sb.storage.from(BUCKET)

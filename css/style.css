@@ -240,7 +240,10 @@ footer {
   background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px;
   padding: 8px 10px; font-size: 13px; color: var(--text);
 }
-.lista-docs .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista-docs .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.lista-docs .aviso { flex: none; font-size: 11.5px; }
+.lista-docs .aviso.entra { color: var(--accent); }
+.lista-docs .aviso.so-lista { color: #f59e0b; }
 .lista-docs .remover { position: static; flex: none; }
 .email-field { margin-top: 20px; }
 .status { margin: 12px 0 0; font-size: 13.5px; color: var(--text-dim); }

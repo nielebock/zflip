@@ -1,6 +1,8 @@
 // Seleção de fotos (até 4, redimensionadas no celular) e documentos do negócio.
 
 const MAX_FOTOS = 4;
+// Formatos que entram no PDF como páginas; os demais ficam só listados na página 1.
+const EXT_NO_PDF = ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'csv', 'md'];
 const LADO_MAX_FOTO = 1600;
 
 const arquivos = { fotos: [], documentos: [] };
@@ -59,6 +61,11 @@ function renderDocumentos() {
     nome.className = 'nome';
     nome.textContent = file.name;
     li.appendChild(nome);
+    const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+    const aviso = document.createElement('span');
+    aviso.className = 'aviso ' + (EXT_NO_PDF.includes(ext) ? 'entra' : 'so-lista');
+    aviso.textContent = EXT_NO_PDF.includes(ext) ? 'entra no PDF' : 'só listado';
+    li.appendChild(aviso);
     li.appendChild(botaoRemover(`Remover documento ${file.name}`, () => {
       arquivos.documentos.splice(i, 1);
       renderDocumentos();

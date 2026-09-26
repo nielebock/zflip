@@ -17,6 +17,12 @@ const LINHAS = [
   { key: 'compra_venda_pct', label: 'Compra / Venda', tipo: 'pct' },
 ];
 
+const TEXTO_ESTADO = {
+  incluido: 'Nas páginas seguintes',
+  nao_suportado: 'Somente listado',
+  falhou: 'Não foi possível incluir',
+};
+
 const fmtEuro = v => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }).format(v);
 const fmtPct = v => new Intl.NumberFormat('pt-PT', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
 
@@ -61,7 +67,7 @@ function tipoDoNome(nome) {
 }
 
 // fotos: lista de data URIs já baixados do Storage
-// docs: [{ nome, incluido }], incluido = true quando o documento entra como páginas no final do PDF
+// docs: [{ nome, estado }], estado = incluido | nao_suportado | falhou (ver anexos.js)
 export function renderProposta(negocio, fotos, docs = []) {
   const direta = negocio.resultado_conta_direta;
   const reversa = negocio.resultado_conta_reversa;
@@ -101,7 +107,7 @@ export function renderProposta(negocio, fotos, docs = []) {
       <table class="docs">
         <thead><tr><th>Arquivo</th><th>Tipo</th><th>No arquivo</th></tr></thead>
         <tbody>
-          ${docs.map(d => `<tr><td>${esc(d.nome)}</td><td>${esc(tipoDoNome(d.nome))}</td><td>${d.incluido ? 'Nas páginas seguintes' : 'Somente listado'}</td></tr>`).join('')}
+          ${docs.map(d => `<tr><td>${esc(d.nome)}</td><td>${esc(tipoDoNome(d.nome))}</td><td>${TEXTO_ESTADO[d.estado] || 'Somente listado'}</td></tr>`).join('')}
         </tbody>
       </table>
     </section>` : '';
@@ -171,7 +177,7 @@ export function renderProposta(negocio, fotos, docs = []) {
   .docs td { padding: 5px 0; border-bottom: 1px solid var(--stone); }
   .docs td:nth-child(n+2), .docs th:nth-child(n+2) { text-align: right; color: var(--mineral); white-space: nowrap; }
   .docs td:nth-child(2), .docs th:nth-child(2) { width: 70px; }
-  .docs td:nth-child(3), .docs th:nth-child(3) { width: 170px; }
+  .docs td:nth-child(3), .docs th:nth-child(3) { width: 190px; }
   .pagina-fotos { break-before: page; padding: 40px 48px 0; height: 297mm; overflow: hidden; }
   .pagina-topo { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 1.5px solid var(--forest); font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); }
   .pagina-marca { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16pt; letter-spacing: 0.32em; color: var(--forest); font-weight: 600; }
@@ -207,6 +213,28 @@ export function renderProposta(negocio, fotos, docs = []) {
     <span>Negócio ${esc(negocio.id)}</span>
   </footer>
   ${paginasFotos.join('')}
+</body>
+</html>`;
+}
+
+// Página(s) de um documento de texto anexado (TXT, CSV, MD), convertida em PDF pelo Chromium.
+export function renderTexto(nome, texto) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500&display=block" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { margin: 0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #3E5148; -webkit-print-color-adjust: exact; }
+  .topo { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; margin-bottom: 14px; border-bottom: 1.5px solid #3E5148; font-size: 9pt; color: #68766D; }
+  .marca { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16pt; letter-spacing: 0.32em; color: #3E5148; font-weight: 600; }
+  pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: 'Inter', Arial, sans-serif; font-size: 9.5pt; line-height: 1.5; color: #3E5148; }
+</style>
+</head>
+<body>
+  <div class="topo"><span class="marca">ZURI</span><span>${esc(nome)}</span></div>
+  <pre>${esc(texto)}</pre>
 </body>
 </html>`;
 }

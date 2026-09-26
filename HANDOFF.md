@@ -133,7 +133,7 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 **Layout do PDF (atualizado depois)**
 - Página 1: tabela, margem, miniaturas das fotos em uma linha e lista de documentos com a coluna "No arquivo".
 - Páginas seguintes: fotos grandes, 2 por página, inteiras (object-fit contain) sobre fundo Limestone.
-- Final do arquivo: documentos PDF (todas as páginas) e imagens PNG ou JPG, uma por página A4, via pdf-lib (api/_lib/anexos.js). Word, Excel, HEIC, WebP e arquivos corrompidos ficam só listados ("Somente listado").
+- Final do arquivo: documentos PDF (todas as páginas) e imagens PNG ou JPG, uma por página A4, via pdf-lib (api/_lib/anexos.js). Texto (TXT, CSV, MD) é diagramado em páginas pelo Chromium. Word, Excel, HEIC e WebP ficam "Somente listado"; PDF ou imagem que não abrir fica "Não foi possível incluir".
 - Preço de compra continua opcional (decisão final do usuário; a spec foi atualizada).
 
 **Ajustes após o primeiro teste no iPhone (2026-09-26)**
@@ -142,3 +142,8 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - Ao gerar ou enviar, abre uma janela pedindo o nome do imóvel ou projeto (coluna `negocios.nome`, migração supabase/002_nome.sql). O nome vira título do PDF, assunto do e-mail e nome do arquivo (`proposta-<nome>.pdf`). Reaproveitado nas ações seguintes do mesmo cálculo; pergunta de novo se os anexos ou o cálculo mudarem.
 - Layout no celular: grade com `minmax(0, 1fr)`, campos de 16 px (evita zoom do iOS), campos de arquivo nativos escondidos e substituídos por botão com contador em português. Causa do estouro de largura: `.field input { width: 100% }` vencia a regra dos campos escondidos.
 - Service worker no cache v4.
+
+**Documentos que não entravam (2026-09-26, tarde)**
+- Relato: só resumo e fotos, sem as páginas dos documentos. Causa: o teste usou um `.txt`, formato que ainda só era listado. PDF e PNG já funcionavam (conferido nos PDFs gerados no teste anterior).
+- Agora TXT, CSV e MD entram como páginas de texto. A tela avisa por arquivo se "entra no PDF" ou "só listado", e o PDF diferencia "Somente listado" (formato não suportado) de "Não foi possível incluir" (falha ao abrir).
+- Não testado: o PDF real "CertidaoPermanente" do usuário (arquivo não encontrado na máquina). PDFs criptografados ou com assinatura digital podem falhar no pdf-lib e aparecer como "Não foi possível incluir". Se acontecer, avaliar outra biblioteca ou orientar a reexportar o PDF.
