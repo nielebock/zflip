@@ -1,11 +1,44 @@
 // Fluxo de exportação: salva o negócio, envia os arquivos, gera o PDF no servidor
 // e reaproveita o mesmo PDF para download, e-mail e WhatsApp.
+// Nada vai ao servidor antes de o usuário gerar ou enviar o relatório.
 
-let supabaseCliente = null;
-let negocioAtual = null; // { id, urlPdf }, descartado quando os dados mudam
+let negocioAtual = null; // { id, nome, urlPdf }, descartado quando os dados mudam
+let ultimoNome = '';
 
 function invalidarNegocio() {
   negocioAtual = null;
+}
+
+function nomeDeArquivo(nome) {
+  const base = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  return `proposta-${base || 'zflip'}`;
+}
+
+// Abre a janela para nomear o imóvel. Devolve o nome, ou null se o usuário cancelar.
+function pedirNome() {
+  const dlg = document.getElementById('dlg-nome');
+  const campo = document.getElementById('nome_imovel');
+  const form = document.getElementById('form-nome');
+  const cancelar = document.getElementById('nome-cancelar');
+  return new Promise(resolve => {
+    let resultado = null;
+    const aoEnviar = () => { resultado = campo.value.trim() || null; };
+    const aoCancelar = () => dlg.close();
+    const aoFechar = () => {
+      form.removeEventListener('submit', aoEnviar);
+      cancelar.removeEventListener('click', aoCancelar);
+      dlg.removeEventListener('close', aoFechar);
+      resolve(resultado);
+    };
+    campo.value = ultimoNome;
+    form.addEventListener('submit', aoEnviar);
+    cancelar.addEventListener('click', aoCancelar);
+    dlg.addEventListener('close', aoFechar);
+    dlg.showModal();
+    campo.focus();
+    campo.select();
+  });
 }
 
 async function chamarApi(caminho, corpo) {
@@ -24,29 +57,31 @@ async function chamarApi(caminho, corpo) {
   return dados;
 }
 
-async function obterSupabase() {
-  if (supabaseCliente) return supabaseCliente;
-  const cfg = await (await fetch('/api/config')).json();
-  supabaseCliente = window.supabase.createClient(cfg.supabaseUrl, cfg.publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return supabaseCliente;
-}
-
-async function enviarArquivos(sb, lista, itens, definirStatus, rotulo) {
+// Envia direto ao Storage pela URL assinada, sem passar pelo limite de 4,5 MB da Vercel.
+async function enviarArquivos(lista, itens, definirStatus, rotulo) {
   for (let i = 0; i < lista.length; i++) {
     definirStatus(`Enviando ${rotulo} ${i + 1} de ${lista.length}...`);
-    const { error } = await sb.storage.from('documentos-negocios')
-      .uploadToSignedUrl(lista[i].caminho, lista[i].token, itens[i], {
-        contentType: itens[i].type || 'application/octet-stream',
-      });
-    if (error) throw new Error(`Falha ao enviar ${itens[i].name}`);
+    const corpo = new FormData();
+    corpo.append('cacheControl', '3600');
+    corpo.append('', itens[i]);
+    let resp;
+    try {
+      resp = await fetch(lista[i].url, { method: 'PUT', body: corpo });
+    } catch {
+      throw new Error(`Sem conexão ao enviar ${itens[i].name}. Tente de novo.`);
+    }
+    if (!resp.ok) throw new Error(`Falha ao enviar ${itens[i].name}`);
   }
 }
 
 // Garante que existe um negócio salvo e um PDF gerado para os dados atuais.
+// Devolve null se o usuário cancelar a janela do nome.
 async function garantirPdf(inputs, definirStatus) {
   if (negocioAtual) return negocioAtual;
+
+  const nome = await pedirNome();
+  if (!nome) return null;
+  ultimoNome = nome;
 
   definirStatus('Preparando arquivos...');
   const fotos = [];
@@ -54,45 +89,45 @@ async function garantirPdf(inputs, definirStatus) {
   const docs = arquivos.documentos;
 
   const meta = a => a.map(f => ({ nome: f.name, tamanho: f.size }));
-  const criado = await chamarApi('/api/negocio', { inputs, fotos: meta(fotos), documentos: meta(docs) });
+  const criado = await chamarApi('/api/negocio', { nome, inputs, fotos: meta(fotos), documentos: meta(docs) });
 
-  if (fotos.length || docs.length) {
-    const sb = await obterSupabase();
-    await enviarArquivos(sb, criado.uploads.fotos, fotos, definirStatus, 'foto');
-    await enviarArquivos(sb, criado.uploads.documentos, docs, definirStatus, 'documento');
-  }
+  await enviarArquivos(criado.uploads.fotos, fotos, definirStatus, 'foto');
+  await enviarArquivos(criado.uploads.documentos, docs, definirStatus, 'documento');
 
   definirStatus('Gerando a folha de proposta...');
   const pdf = await chamarApi('/api/pdf', { id: criado.id });
-  negocioAtual = { id: criado.id, urlPdf: pdf.url };
+  negocioAtual = { id: criado.id, nome, urlPdf: pdf.url };
   return negocioAtual;
 }
 
 async function baixarPdf(negocio) {
   const resp = await fetch(negocio.urlPdf);
   if (!resp.ok) throw new Error('Não foi possível baixar o PDF gerado');
-  return new File([await resp.blob()], `proposta-zflip-${negocio.id.slice(0, 8)}.pdf`, { type: 'application/pdf' });
+  return new File([await resp.blob()], `${nomeDeArquivo(negocio.nome)}.pdf`, { type: 'application/pdf' });
 }
 
 async function acaoGerarPdf(inputs, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
+  if (!negocio) return definirStatus('');
   window.open(negocio.urlPdf, '_blank');
-  definirStatus('PDF gerado. Se não abriu, permita pop-ups neste site.', 'ok');
+  definirStatus(`PDF de "${negocio.nome}" gerado. Se não abriu, permita pop-ups neste site.`, 'ok');
 }
 
 async function acaoEnviarEmail(inputs, para, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
+  if (!negocio) return definirStatus('');
   definirStatus('Enviando e-mail...');
   await chamarApi('/api/email', { id: negocio.id, para });
-  definirStatus(`E-mail enviado para ${para}.`, 'ok');
+  definirStatus(`E-mail com "${negocio.nome}" enviado para ${para}.`, 'ok');
 }
 
 async function acaoEnviarWhatsApp(inputs, definirStatus) {
   const negocio = await garantirPdf(inputs, definirStatus);
+  if (!negocio) return definirStatus('');
   const arquivo = await baixarPdf(negocio);
   if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
     try {
-      await navigator.share({ files: [arquivo], title: 'Proposta ZFlip' });
+      await navigator.share({ files: [arquivo], title: negocio.nome });
       definirStatus('Proposta compartilhada.', 'ok');
       return;
     } catch (err) {
@@ -100,7 +135,7 @@ async function acaoEnviarWhatsApp(inputs, definirStatus) {
       // outro erro (por exemplo, gesto do usuário expirado): segue para o link
     }
   }
-  const texto = `Proposta de flip imobiliário, Zuri Real Estate: ${negocio.urlPdf}`;
+  const texto = `Proposta de flip imobiliário, ${negocio.nome}: ${negocio.urlPdf}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
   definirStatus('WhatsApp aberto com o link do PDF.', 'ok');
 }

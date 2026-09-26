@@ -10,6 +10,8 @@ const fotosInput = document.getElementById('fotos');
 const fotosPreview = document.getElementById('fotos-preview');
 const docsInput = document.getElementById('documentos');
 const docsLista = document.getElementById('documentos-lista');
+const fotosContagem = document.getElementById('fotos-contagem');
+const docsContagem = document.getElementById('documentos-contagem');
 
 function botaoRemover(rotulo, aoClicar) {
   const b = document.createElement('button');
@@ -22,6 +24,11 @@ function botaoRemover(rotulo, aoClicar) {
 }
 
 function renderFotos() {
+  const n = arquivos.fotos.length;
+  fotosContagem.textContent = n === 0 ? 'Nenhuma foto adicionada'
+    : n >= MAX_FOTOS ? `${n} de ${MAX_FOTOS} fotos adicionadas (limite atingido)`
+    : `${n} de ${MAX_FOTOS} fotos adicionadas`;
+  fotosContagem.classList.toggle('tem', n > 0);
   fotosPreview.innerHTML = '';
   arquivos.fotos.forEach((file, i) => {
     const box = document.createElement('div');
@@ -41,6 +48,10 @@ function renderFotos() {
 }
 
 function renderDocumentos() {
+  const n = arquivos.documentos.length;
+  docsContagem.textContent = n === 0 ? 'Nenhum documento adicionado'
+    : n === 1 ? '1 documento adicionado' : `${n} documentos adicionados`;
+  docsContagem.classList.toggle('tem', n > 0);
   docsLista.innerHTML = '';
   arquivos.documentos.forEach((file, i) => {
     const li = document.createElement('li');

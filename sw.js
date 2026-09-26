@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zflip-v3';
+const CACHE_NAME = 'zflip-v4';
 const ASSETS = [
   './',
   './index.html',

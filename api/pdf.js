@@ -4,6 +4,7 @@ import { json, erro, lerJson, idValido } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
 import { renderProposta } from './_lib/proposta.js';
 import { nomeDoCaminho, prepararAnexos, juntar } from './_lib/anexos.js';
+import { nomeDeArquivo } from './_lib/nome.js';
 
 chromium.setGraphicsMode = false;
 
@@ -74,7 +75,7 @@ export async function POST(request) {
     await sb.from('negocios').update({ pdf_path: caminho }).eq('id', negocio.id);
 
     const { data: link, error: erroLink } = await sb.storage.from(BUCKET)
-      .createSignedUrl(caminho, VALIDADE_LINK, { download: `proposta-zflip-${negocio.id.slice(0, 8)}.pdf` });
+      .createSignedUrl(caminho, VALIDADE_LINK, { download: `${nomeDeArquivo(negocio)}.pdf` });
     if (erroLink) throw erroLink;
 
     return json({ id: negocio.id, url: link.signedUrl });

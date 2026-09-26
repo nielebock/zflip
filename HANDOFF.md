@@ -96,13 +96,12 @@ Implementado o que a spec pedia e ainda não existia.
 **Estrutura nova**
 ```
 api/
-  config.js      GET: devolve SUPABASE_URL e Publishable key ao navegador
   negocio.js     POST: valida, calcula no servidor, salva em `negocios`, devolve URLs assinadas de upload
   pdf.js         POST: monta o HTML ZURI, Chromium converte em PDF, salva no Storage, devolve link assinado (7 dias)
   email.js       POST: baixa o PDF do Storage e envia pelo Resend com anexo
   _lib/          supabase.js (cliente com Secret key), motor.js, proposta.js (template), http.js
 js/arquivos.js   seleção de fotos (até 4, reduzidas a 1600 px no celular) e documentos
-js/exportar.js   fluxo: salvar negócio, enviar arquivos direto ao Storage, gerar PDF, e-mail, WhatsApp
+js/exportar.js   fluxo: nome do imóvel, salvar negócio, enviar arquivos direto ao Storage (fetch PUT na URL assinada), gerar PDF, e-mail, WhatsApp
 supabase/001_negocios.sql   tabela e bucket (já aplicado no projeto ZFlipDB)
 vercel.json      memória 2048 MB e 60 s para api/pdf.js
 ```
@@ -136,3 +135,10 @@ vercel.json      memória 2048 MB e 60 s para api/pdf.js
 - Páginas seguintes: fotos grandes, 2 por página, inteiras (object-fit contain) sobre fundo Limestone.
 - Final do arquivo: documentos PDF (todas as páginas) e imagens PNG ou JPG, uma por página A4, via pdf-lib (api/_lib/anexos.js). Word, Excel, HEIC, WebP e arquivos corrompidos ficam só listados ("Somente listado").
 - Preço de compra continua opcional (decisão final do usuário; a spec foi atualizada).
+
+**Ajustes após o primeiro teste no iPhone (2026-09-26)**
+- Erro `window.supabase.createClient` em todos os botões: a biblioteca supabase-js, carregada de CDN, não chegou ao iPhone. Removida. O navegador agora envia os arquivos com `fetch` PUT na URL assinada devolvida por api/negocio (sem dependência externa). api/config.js foi removido.
+- Anexos (fotos e documentos) saíram do formulário e ficam no cartão de resultado, depois do cálculo, opcionais. Nada vai ao servidor até o usuário gerar o PDF ou enviar.
+- Ao gerar ou enviar, abre uma janela pedindo o nome do imóvel ou projeto (coluna `negocios.nome`, migração supabase/002_nome.sql). O nome vira título do PDF, assunto do e-mail e nome do arquivo (`proposta-<nome>.pdf`). Reaproveitado nas ações seguintes do mesmo cálculo; pergunta de novo se os anexos ou o cálculo mudarem.
+- Layout no celular: grade com `minmax(0, 1fr)`, campos de 16 px (evita zoom do iOS), campos de arquivo nativos escondidos e substituídos por botão com contador em português. Causa do estouro de largura: `.field input { width: 100% }` vencia a regra dos campos escondidos.
+- Service worker no cache v4.

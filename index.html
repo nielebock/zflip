@@ -99,18 +99,6 @@
         <input type="number" id="imi_anual_pct" name="imi_anual_pct" min="0" step="0.01" value="0.32">
       </div>
 
-      <div class="field field-wide">
-        <label for="fotos">Fotos do imóvel (até 4)</label>
-        <input type="file" id="fotos" accept="image/*" multiple>
-        <div id="fotos-preview" class="thumbs"></div>
-      </div>
-
-      <div class="field field-wide">
-        <label for="documentos">Documentos associados (caderneta, certidão, plantas, avaliação)</label>
-        <input type="file" id="documentos" multiple>
-        <ul id="documentos-lista" class="lista-docs"></ul>
-      </div>
-
       <button type="submit" class="btn-primary">Calcular</button>
     </form>
   </section>
@@ -132,6 +120,27 @@
 
     <div id="margin-viz" class="margin-viz"></div>
 
+    <div class="anexos">
+      <h3>Anexos do relatório (opcional)</h3>
+      <p class="dica">Fotos e documentos só são enviados ao servidor quando você gera o PDF ou envia o relatório.</p>
+
+      <div class="field">
+        <span class="rotulo">Fotos do imóvel (até 4)</span>
+        <label class="btn-arquivo" for="fotos">Adicionar fotos</label>
+        <input type="file" id="fotos" class="oculto" accept="image/*" multiple>
+        <p id="fotos-contagem" class="contagem">Nenhuma foto adicionada</p>
+        <div id="fotos-preview" class="thumbs"></div>
+      </div>
+
+      <div class="field">
+        <span class="rotulo">Documentos do imóvel (caderneta, certidão, plantas, avaliação)</span>
+        <label class="btn-arquivo" for="documentos">Adicionar documentos</label>
+        <input type="file" id="documentos" class="oculto" multiple>
+        <p id="documentos-contagem" class="contagem">Nenhum documento adicionado</p>
+        <ul id="documentos-lista" class="lista-docs"></ul>
+      </div>
+    </div>
+
     <div class="field email-field">
       <label for="email_destino">E-mail do destinatário</label>
       <input type="email" id="email_destino" placeholder="nome@exemplo.com" autocomplete="email" inputmode="email">
@@ -146,11 +155,22 @@
   </section>
 </main>
 
+<dialog id="dlg-nome" class="dlg">
+  <form id="form-nome" method="dialog">
+    <h3>Nome do imóvel ou projeto</h3>
+    <p class="dica">Aparece no título do relatório e no nome do arquivo.</p>
+    <input type="text" id="nome_imovel" maxlength="80" required autocomplete="off" placeholder="Ex.: T2 Alvalade">
+    <div class="dlg-acoes">
+      <button type="button" id="nome-cancelar" class="btn-secondary">Cancelar</button>
+      <button type="submit" class="btn-primary">Continuar</button>
+    </div>
+  </form>
+</dialog>
+
 <footer>
   <p>Zuri Real Estate · ZFlip</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="js/imt.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/arquivos.js"></script>

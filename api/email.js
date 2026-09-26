@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
+import { nomeDeArquivo } from './_lib/nome.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Remetente de teste do Resend até o domínio da Zuri ser verificado.
@@ -13,7 +14,7 @@ export async function POST(request) {
   if (!EMAIL.test(para)) return erro('E-mail do destinatário inválido');
 
   const sb = supabaseAdmin();
-  const { data: negocio, error } = await sb.from('negocios').select('id, pdf_path').eq('id', body.id).single();
+  const { data: negocio, error } = await sb.from('negocios').select('id, nome, pdf_path').eq('id', body.id).single();
   if (error || !negocio) return erro('Negócio não encontrado', 404);
   if (!negocio.pdf_path) return erro('Gere o PDF antes de enviar por e-mail', 409);
 
@@ -25,18 +26,20 @@ export async function POST(request) {
   const { data, error: erroEnvio } = await resend.emails.send({
     from: REMETENTE,
     to: [para],
-    subject: 'Proposta de flip imobiliário, Zuri Real Estate',
+    subject: negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate',
     text: [
       'Olá,',
       '',
-      'Segue em anexo a folha de proposta do negócio analisado pela Zuri Real Estate.',
+      negocio.nome
+        ? `Segue em anexo a folha de proposta do imóvel "${negocio.nome}", analisado pela Zuri Real Estate.`
+        : 'Segue em anexo a folha de proposta do negócio analisado pela Zuri Real Estate.',
       '',
       `Identificador do negócio: ${negocio.id}`,
       '',
       'Atenciosamente,',
       'Zuri Real Estate',
     ].join('\n'),
-    attachments: [{ filename: `proposta-zflip-${negocio.id.slice(0, 8)}.pdf`, content: conteudo }],
+    attachments: [{ filename: `${nomeDeArquivo(negocio)}.pdf`, content: conteudo }],
   });
 
   if (erroEnvio) {

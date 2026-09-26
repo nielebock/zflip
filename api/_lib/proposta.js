@@ -186,7 +186,7 @@ export function renderProposta(negocio, fotos, docs = []) {
       <div class="marca">ZURI</div>
       <div class="marca-sub">Real Estate</div>
     </div>
-    <div class="titulo-doc">Folha de proposta<strong>Análise de flip imobiliário</strong></div>
+    <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong></div>
   </header>
   <main>
     <section class="bloco">

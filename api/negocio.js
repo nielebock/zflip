@@ -51,6 +51,8 @@ export async function POST(request) {
   const body = await lerJson(request);
   if (!body) return erro('Corpo da requisição inválido');
   const { inputs, fotos = [], documentos = [] } = body;
+  const nome = typeof body.nome === 'string' ? body.nome.trim() : '';
+  if (!nome || nome.length > 80) return erro('Informe o nome do imóvel ou projeto (até 80 caracteres)');
 
   const falha = validarInputs(inputs)
     || validarArquivos(fotos, MAX_FOTOS, 'fotos')
@@ -65,6 +67,7 @@ export async function POST(request) {
   const sb = supabaseAdmin();
   const { error: erroInsert } = await sb.from('negocios').insert({
     id,
+    nome,
     preco_venda: inputs.preco_venda,
     preco_compra: inputs.preco_compra,
     aplicar_imt: inputs.aplicar_imt,
@@ -92,7 +95,7 @@ export async function POST(request) {
   const assinar = async caminho => {
     const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(caminho);
     if (error) throw error;
-    return { caminho, token: data.token };
+    return { caminho, url: data.signedUrl };
   };
 
   try {
