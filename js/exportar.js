@@ -2,7 +2,7 @@
 // e reaproveita o mesmo PDF para download, e-mail e WhatsApp.
 // Nada vai ao servidor antes de o usuário gerar ou enviar o relatório.
 
-let negocioAtual = null; // { id, nome, urlPdf }, descartado quando os dados mudam
+let negocioAtual = null; // { id, nome, tag, urlPdf }, descartado quando os dados mudam
 let ultimoNome = '';
 
 const painelPronto = document.getElementById('pronto');
@@ -44,8 +44,11 @@ async function compartilharPdf() {
 
 document.getElementById('btn-compartilhar').addEventListener('click', compartilharPdf);
 
-function nomeDeArquivo(nome) {
-  const base = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+// A tag (0001_Zuri_20260928_NomeDoImovel) vem do servidor ao salvar o neg\u00f3cio.
+// Sem ela (neg\u00f3cio salvo antes da migra\u00e7\u00e3o da tag), cai no nome antigo, a partir do nome do im\u00f3vel.
+function nomeDeArquivo(negocio) {
+  if (negocio.tag) return negocio.tag;
+  const base = negocio.nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
   return `proposta-${base || 'zflip'}`;
 }
@@ -163,14 +166,14 @@ async function garantirPdf(inputs, definirStatus) {
 
   definirStatus('Gerando a folha de proposta...');
   const pdf = await chamarApi('/api/pdf', { id: criado.id });
-  negocioAtual = { id: criado.id, nome, urlPdf: pdf.url };
+  negocioAtual = { id: criado.id, nome, tag: criado.tag, urlPdf: pdf.url };
   return negocioAtual;
 }
 
 async function baixarPdf(negocio) {
   const resp = await fetch(negocio.urlPdf);
   if (!resp.ok) throw new Error('Não foi possível baixar o PDF gerado');
-  return new File([await resp.blob()], `${nomeDeArquivo(negocio.nome)}.pdf`, { type: 'application/pdf' });
+  return new File([await resp.blob()], `${nomeDeArquivo(negocio)}.pdf`, { type: 'application/pdf' });
 }
 
 async function acaoGerarPdf(inputs, definirStatus) {

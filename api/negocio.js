@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { json, erro, lerJson } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
 import { calcularZFlip } from './_lib/motor.js';
+import { construirTag } from './_lib/nome.js';
 
 const MAX_FOTOS = 20;
 const MAX_PRINCIPAIS = 4;
@@ -22,6 +23,7 @@ function validarInputs(i) {
   if (!numeroValido(i.preco_venda) || i.preco_venda <= 0) return 'Preço de venda inválido';
   if (i.preco_compra !== null && (!numeroValido(i.preco_compra) || i.preco_compra <= 0)) return 'Preço de compra inválido';
   if (typeof i.aplicar_imt !== 'boolean') return 'Campo Aplicar IMT inválido';
+  if (!numeroValido(i.prazo_cpcv_dias) || !Number.isInteger(i.prazo_cpcv_dias)) return 'Prazo para CPCV inválido';
   if (!numeroValido(i.prazo_meses) || !Number.isInteger(i.prazo_meses)) return 'Prazo inválido';
   if (!['pct', 'fixo'].includes(i.modo_remodelacao)) return 'Modo de remodelação inválido';
   if (!numeroValido(i.remodelacao_valor)) return 'Valor de remodelação inválido';
@@ -79,7 +81,7 @@ export async function POST(request) {
   const caminhosDocs = documentos.map((d, n) => `${id}/documentos/${n + 1}-${nomeSeguro(d.nome)}`);
 
   const sb = supabaseAdmin();
-  const { error: erroInsert } = await sb.from('negocios').insert({
+  const { data: inserido, error: erroInsert } = await sb.from('negocios').insert({
     id,
     nome,
     preco_venda: inputs.preco_venda,
@@ -88,6 +90,7 @@ export async function POST(request) {
     comissao_venda_pct: inputs.comissao_venda_pct,
     iva_comissao_pct: inputs.iva_comissao_pct,
     roi_alvo_pct: inputs.roi_alvo_pct,
+    prazo_cpcv_dias: inputs.prazo_cpcv_dias,
     prazo_meses: inputs.prazo_meses,
     modo_remodelacao: inputs.modo_remodelacao,
     remodelacao_valor_ou_pct: inputs.remodelacao_valor,
@@ -102,11 +105,15 @@ export async function POST(request) {
     miniaturas: caminhosMiniaturas,
     fotos_principais: principais.map(i => caminhosFotos[i]),
     documentos: caminhosDocs,
-  });
+  }).select('numero, criado_em').single();
   if (erroInsert) {
     console.error('insert negocios', erroInsert);
     return erro('Não foi possível salvar o negócio', 500);
   }
+
+  const tag = construirTag(inserido.numero, inserido.criado_em, nome);
+  const { error: erroTag } = await sb.from('negocios').update({ tag }).eq('id', id);
+  if (erroTag) console.error('update tag', erroTag); // não impede o negócio de seguir salvo
 
   const assinar = async caminho => {
     const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(caminho);
@@ -120,7 +127,7 @@ export async function POST(request) {
       miniaturas: await Promise.all(caminhosMiniaturas.map(assinar)),
       documentos: await Promise.all(caminhosDocs.map(assinar)),
     };
-    return json({ id, uploads, resultado: { conta1, conta2 } });
+    return json({ id, tag, uploads, resultado: { conta1, conta2 } });
   } catch (e) {
     console.error('signed upload', e);
     return erro('Negócio salvo, mas não foi possível preparar o envio dos arquivos', 500);

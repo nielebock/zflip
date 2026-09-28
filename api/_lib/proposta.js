@@ -25,6 +25,7 @@ const TEXTO_ESTADO = {
 
 const fmtEuro = v => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }).format(v);
 const fmtPct = v => new Intl.NumberFormat('pt-PT', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
+const fmtData = v => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeZone: 'Europe/Lisbon' }).format(v);
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -59,6 +60,34 @@ function blocoMargem(direta, reversa) {
       <div class="barra"><div class="seg informado" style="width:${(informado / escala) * 100}%"></div></div>
       <span class="barra-valor">${fmtEuro(informado)}</span></div>
   </div>`;
+}
+
+// Data CPCV = data de criação da proposta + prazo_cpcv_dias.
+// Data de venda prevista = Data CPCV + prazo_meses (prazo do negócio).
+function blocoPrazos(negocio) {
+  const dataCriacao = new Date(negocio.criado_em);
+  const prazoCpcvDias = negocio.prazo_cpcv_dias ?? 0;
+
+  const dataCpcv = new Date(dataCriacao);
+  dataCpcv.setDate(dataCpcv.getDate() + prazoCpcvDias);
+
+  const dataVenda = new Date(dataCpcv);
+  dataVenda.setMonth(dataVenda.getMonth() + negocio.prazo_meses);
+
+  const itens = [
+    { rotulo: 'Data de criação', valor: fmtData(dataCriacao) },
+    { rotulo: 'Data CPCV', valor: fmtData(dataCpcv) },
+    { rotulo: 'Prazo do negócio', valor: `${negocio.prazo_meses} ${negocio.prazo_meses === 1 ? 'mês' : 'meses'}` },
+    { rotulo: 'Data de venda prevista', valor: fmtData(dataVenda) },
+  ];
+
+  return `
+  <section class="bloco evitar-quebra">
+    <h2>Prazos</h2>
+    <div class="prazos">
+      ${itens.map(i => `<div class="prazo-item"><div class="prazo-rotulo">${esc(i.rotulo)}</div><div class="prazo-valor">${esc(i.valor)}</div></div>`).join('')}
+    </div>
+  </section>`;
 }
 
 function tipoDoNome(nome) {
@@ -158,6 +187,10 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   .contas td:first-child { text-align: left; padding-left: 0; color: var(--mineral); }
   .contas tr.destaque td { background: var(--limestone); font-weight: 600; color: var(--forest); }
   .contas tr.destaque td:first-child { padding-left: 10px; }
+  .prazos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .prazo-item { background: var(--limestone); padding: 10px 14px; }
+  .prazo-rotulo { font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); margin-bottom: 4px; }
+  .prazo-valor { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 13pt; color: var(--forest); }
   .margem { background: var(--limestone); border-left: 3px solid var(--forest); padding: 14px 18px; }
   .margem.alerta { border-left-color: #9A5B4A; }
   .margem-texto { margin: 0 0 12px; }
@@ -198,6 +231,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
     <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong></div>
   </header>
   <main>
+    ${blocoPrazos(negocio)}
     <section class="bloco">
       <table class="contas">
         <thead><tr><th>Indicador</th><th>Preço máximo (ROI alvo)</th><th>Com preço de compra informado</th></tr></thead>
