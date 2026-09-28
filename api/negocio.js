@@ -79,7 +79,7 @@ export async function POST(request) {
   const caminhosDocs = documentos.map((d, n) => `${id}/documentos/${n + 1}-${nomeSeguro(d.nome)}`);
 
   const sb = supabaseAdmin();
-  const { error: erroInsert } = await sb.from('negocios').insert({
+  const { data: inserido, error: erroInsert } = await sb.from('negocios').insert({
     id,
     nome,
     preco_venda: inputs.preco_venda,
@@ -102,7 +102,7 @@ export async function POST(request) {
     miniaturas: caminhosMiniaturas,
     fotos_principais: principais.map(i => caminhosFotos[i]),
     documentos: caminhosDocs,
-  });
+  }).select('tag').single();
   if (erroInsert) {
     console.error('insert negocios', erroInsert);
     return erro('Não foi possível salvar o negócio', 500);
@@ -120,7 +120,7 @@ export async function POST(request) {
       miniaturas: await Promise.all(caminhosMiniaturas.map(assinar)),
       documentos: await Promise.all(caminhosDocs.map(assinar)),
     };
-    return json({ id, uploads, resultado: { conta1, conta2 } });
+    return json({ id, tag: inserido.tag, uploads, resultado: { conta1, conta2 } });
   } catch (e) {
     console.error('signed upload', e);
     return erro('Negócio salvo, mas não foi possível preparar o envio dos arquivos', 500);

@@ -99,23 +99,25 @@ Sessão de 2026-09-26, em ordem:
 
 ## 5. Próximos passos
 
+**Pendente, aplicar no painel do Supabase (SQL Editor):** rodar `supabase/004_tag.sql`. Adiciona `numero` (sequencial automático) e `tag` (coluna gerada, formato `0001_Zuri_AAAAMMDD_NomeDoImovel`) na tabela `negocios`. A tag é calculada automaticamente a cada negócio salvo (na gravação, que hoje acontece em Gerar PDF, Enviar e-mail e WhatsApp, decisão mantida) e passa a ser usada como nome do arquivo do PDF (Storage, download, anexo do e-mail). Negócios já salvos antes da migração recebem `numero`/`tag` retroativos na própria migração; o código tem fallback para o nome antigo (`proposta-<nome>`) caso `tag` venha vazia por algum motivo.
+
 Quando o usuário voltar com o domínio, o e-mail da Zuri e o Microsoft 365:
 1. Definir com o usuário **como o e-mail sai** (ver pergunta 1 abaixo) antes de escrever código.
 2. Se for Resend com domínio da Zuri: verificar o domínio no painel do Resend (registros DNS), criar `RESEND_FROM` na Vercel (ex.: `Zuri Real Estate <propostas@dominio>`, Production e Preview), republicar, testar um envio para um endereço que não seja o dono da conta.
 3. Remover o valor padrão `nielebock@gmail.com` de `#email_destino` em `index.html` (ou trocar por um endereço da Zuri).
 4. Se for Microsoft 365: avaliar Microsoft Graph (registro de aplicativo no Entra ID, permissão `Mail.Send`) em vez do Resend; segredos só em variáveis da Vercel.
 5. Testar no iPhone e no Android: gerar PDF, Abrir PDF, Compartilhar PDF no WhatsApp, escolha de fotos principais, e-mail.
-6. Rotacionar as chaves (ver pergunta 3) e atualizar as variáveis na Vercel.
+6. Implementar a rotina de limpeza decidida em 2026-09-28 (pergunta 4): antes de apagar um negócio, baixar manualmente do Supabase (fotos, documentos, PDF) para uma pasta local ou na nuvem. Ainda sem apoio no app; hoje é tudo manual no painel do Supabase.
 
 Melhorias possíveis, sem urgência: tela de histórico de negócios no app; logo real da Zuri no PDF; fotos originais em vez das reduzidas (custa muito mais armazenamento); 2FA na conta Vercel.
 
 ## 6. Perguntas em aberto
 
-1. **Envio de e-mail:** Resend com domínio verificado, ou Microsoft 365 (Outlook/Graph) como remetente? Qual será o endereço remetente?
-2. **Condomínio na fórmula reversa** (pendente desde 2026-09-16): a planilha `Arjon_BP_COSMIKVARIETY_v17.xlsx`, aba `02_ECONOMIA_NEGOCIO`, desconta Condomínio x Prazo (30 EUR/mês x prazo) do valor alvo antes de calcular o preço máximo. O app não faz isso porque a spec exclui condomínio. Diferença de cerca de 98 EUR no preço máximo (208.438,63 na planilha contra 208.537,07 no app com os valores padrão). Decidir se replica.
-3. **Chaves coladas na conversa** (Supabase Secret key e Resend): o usuário avaliou o risco como baixo por o computador ser só dele e deixou como está. Rotacionar se a pasta `~/.claude` for sincronizada na nuvem ou a sessão for exportada. Passo a passo: criar nova Secret key no Supabase (Project Settings, API Keys) e nova chave no Resend (Sending access), atualizar na Vercel, republicar, testar, só então revogar as antigas.
-4. **Armazenamento:** cada negócio com 20 fotos usa cerca de 5 a 9 MB; o plano gratuito do Supabase tem 1 GB. Definir política de limpeza se crescer.
-5. **Regra de permissão criada pelo usuário** no Claude Code para um script de limpeza (`Bash(bash .../limpar.sh)`): o script já foi apagado; confirmar em `/permissions` que a regra foi removida.
+1. **Envio de e-mail:** Resend com domínio verificado, ou Microsoft 365 (Outlook/Graph) como remetente? Qual será o endereço remetente? **Ainda em aberto** (resposta do usuário em 2026-09-28: ainda não tem a definição).
+2. ~~**Condomínio na fórmula reversa**~~ **Resolvido em 2026-09-28: não replicar.** O app segue sem descontar condomínio na conta reversa, como já estava.
+3. ~~**Chaves coladas na conversa**~~ **Resolvido em 2026-09-28: não rotacionar.** O usuário avalia o risco como baixo porque a conversa é privada.
+4. **Armazenamento / limpeza:** decidido em 2026-09-28 que, quando entrar o Microsoft 365, o fluxo será baixar manualmente os arquivos (fotos, documentos, PDF da proposta) do Supabase para uma pasta local ou na nuvem, e só então limpar o negócio do banco. Falta implementar essa rotina (hoje a limpeza só é feita manualmente no painel do Supabase, sem nenhum apoio no app). Ver item na seção 5.
+5. ~~**Regra de permissão do script de limpeza**~~ **Esclarecido em 2026-09-28:** é uma regra em `/permissions` do Claude Code (não do Supabase), que autorizava rodar `limpar.sh`. O script já foi apagado do disco; falta só confirmar em `/permissions` que a regra também foi removida, senão ela fica autorizando um comando que não existe mais.
 
 ## 7. Artefatos relevantes
 

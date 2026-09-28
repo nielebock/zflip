@@ -14,7 +14,7 @@ export async function POST(request) {
   if (!EMAIL.test(para)) return erro('E-mail do destinatário inválido');
 
   const sb = supabaseAdmin();
-  const { data: negocio, error } = await sb.from('negocios').select('id, nome, pdf_path').eq('id', body.id).single();
+  const { data: negocio, error } = await sb.from('negocios').select('id, nome, tag, pdf_path').eq('id', body.id).single();
   if (error || !negocio) return erro('Negócio não encontrado', 404);
   if (!negocio.pdf_path) return erro('Gere o PDF antes de enviar por e-mail', 409);
 
