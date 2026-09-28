@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { json, erro, lerJson } from './_lib/http.js';
 import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
 import { calcularZFlip } from './_lib/motor.js';
+import { construirTag } from './_lib/nome.js';
 
 const MAX_FOTOS = 20;
 const MAX_PRINCIPAIS = 4;
@@ -102,11 +103,15 @@ export async function POST(request) {
     miniaturas: caminhosMiniaturas,
     fotos_principais: principais.map(i => caminhosFotos[i]),
     documentos: caminhosDocs,
-  }).select('tag').single();
+  }).select('numero, criado_em').single();
   if (erroInsert) {
     console.error('insert negocios', erroInsert);
     return erro('Não foi possível salvar o negócio', 500);
   }
+
+  const tag = construirTag(inserido.numero, inserido.criado_em, nome);
+  const { error: erroTag } = await sb.from('negocios').update({ tag }).eq('id', id);
+  if (erroTag) console.error('update tag', erroTag); // não impede o negócio de seguir salvo
 
   const assinar = async caminho => {
     const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(caminho);
@@ -120,7 +125,7 @@ export async function POST(request) {
       miniaturas: await Promise.all(caminhosMiniaturas.map(assinar)),
       documentos: await Promise.all(caminhosDocs.map(assinar)),
     };
-    return json({ id, tag: inserido.tag, uploads, resultado: { conta1, conta2 } });
+    return json({ id, tag, uploads, resultado: { conta1, conta2 } });
   } catch (e) {
     console.error('signed upload', e);
     return erro('Negócio salvo, mas não foi possível preparar o envio dos arquivos', 500);
