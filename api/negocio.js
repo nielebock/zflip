@@ -23,6 +23,7 @@ function validarInputs(i) {
   if (!numeroValido(i.preco_venda) || i.preco_venda <= 0) return 'Preço de venda inválido';
   if (i.preco_compra !== null && (!numeroValido(i.preco_compra) || i.preco_compra <= 0)) return 'Preço de compra inválido';
   if (typeof i.aplicar_imt !== 'boolean') return 'Campo Aplicar IMT inválido';
+  if (!numeroValido(i.prazo_cpcv_dias) || !Number.isInteger(i.prazo_cpcv_dias)) return 'Prazo para CPCV inválido';
   if (!numeroValido(i.prazo_meses) || !Number.isInteger(i.prazo_meses)) return 'Prazo inválido';
   if (!['pct', 'fixo'].includes(i.modo_remodelacao)) return 'Modo de remodelação inválido';
   if (!numeroValido(i.remodelacao_valor)) return 'Valor de remodelação inválido';
@@ -89,6 +90,7 @@ export async function POST(request) {
     comissao_venda_pct: inputs.comissao_venda_pct,
     iva_comissao_pct: inputs.iva_comissao_pct,
     roi_alvo_pct: inputs.roi_alvo_pct,
+    prazo_cpcv_dias: inputs.prazo_cpcv_dias,
     prazo_meses: inputs.prazo_meses,
     modo_remodelacao: inputs.modo_remodelacao,
     remodelacao_valor_ou_pct: inputs.remodelacao_valor,

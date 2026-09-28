@@ -42,6 +42,7 @@ function readInputs() {
     comissao_venda_pct: pct(form.comissao_venda_pct.value),
     iva_comissao_pct: pct(form.iva_comissao_pct.value),
     roi_alvo_pct: pct(form.roi_alvo_pct.value),
+    prazo_cpcv_dias: toNum(form.prazo_cpcv_dias.value),
     prazo_meses: toNum(form.prazo_meses.value),
     modo_remodelacao: form.modo_remodelacao.value,
     remodelacao_valor: form.modo_remodelacao.value === 'fixo'

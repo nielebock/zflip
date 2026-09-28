@@ -57,6 +57,11 @@
       </div>
 
       <div class="field">
+        <label for="prazo_cpcv_dias">Prazo para CPCV (dias)</label>
+        <input type="number" id="prazo_cpcv_dias" name="prazo_cpcv_dias" min="0" step="1" value="30">
+      </div>
+
+      <div class="field">
         <label for="prazo_meses">Prazo do negócio (meses)</label>
         <input type="number" id="prazo_meses" name="prazo_meses" min="0" step="1" value="4">
       </div>
@@ -64,14 +69,14 @@
       <div class="field">
         <label for="modo_remodelacao">Modo de remodelação</label>
         <select id="modo_remodelacao" name="modo_remodelacao">
-          <option value="pct" selected>% sobre aquisição</option>
-          <option value="fixo">Valor direto (€)</option>
+          <option value="pct">% sobre aquisição</option>
+          <option value="fixo" selected>Valor direto (€)</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="remodelacao_valor" id="label-remodelacao">Remodelação (%)</label>
-        <input type="number" id="remodelacao_valor" name="remodelacao_valor" min="0" step="0.01" value="12">
+        <label for="remodelacao_valor" id="label-remodelacao">Remodelação (€)</label>
+        <input type="number" id="remodelacao_valor" name="remodelacao_valor" min="0" step="0.01">
       </div>
 
       <div class="field">
