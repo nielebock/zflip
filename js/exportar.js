@@ -44,7 +44,7 @@ async function compartilharPdf() {
 
 document.getElementById('btn-compartilhar').addEventListener('click', compartilharPdf);
 
-// A tag (0001_Zuri_20260928_NomeDoImovel) vem do servidor ao salvar o neg\u00f3cio.
+// A tag (0001_Zuri_2026.09.28_NomeDoImovel) vem do servidor ao salvar o neg\u00f3cio.
 // Sem ela (neg\u00f3cio salvo antes da migra\u00e7\u00e3o da tag), cai no nome antigo, a partir do nome do im\u00f3vel.
 function nomeDeArquivo(negocio) {
   if (negocio.tag) return negocio.tag;

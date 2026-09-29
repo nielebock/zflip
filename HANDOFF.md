@@ -1,7 +1,7 @@
 # Handoff: ZFlip (calculadora de flip imobiliário da Zuri Real Estate)
 
-**Data:** 2026-09-26
-**Status:** aguardando dependências externas (domínio e e-mail da Zuri, Microsoft 365). O app está em produção e funcional; nada está quebrado que se saiba.
+**Data:** 2026-09-28
+**Status:** em andamento. App em produção e funcional; sessão terminou com tudo publicado e sem pendência técnica bloqueante, só decisões de negócio em aberto (seção 6).
 
 ---
 
@@ -9,12 +9,12 @@
 
 PWA para a Zuri Real Estate calcular a economia de um negócio de flip imobiliário em dois sentidos (preço de compra informado e preço máximo de compra para bater o ROI alvo) e gerar uma folha de proposta em PDF, enviável por e-mail ou WhatsApp. Uso interno (Guto e corretores), sem login. O Supabase funciona também como banco de dados dos negócios, com fotos e documentos.
 
-Na sessão de 2026-09-26 foi implementado tudo o que a spec pedia e ainda não existia: Supabase, uploads, PDF no servidor, e-mail (Resend) e WhatsApp. Depois, ajustes a partir de testes no iPhone.
+Nesta sessão (2026-09-28): aplicada a migração pendente da sessão anterior (tag automática da proposta), e implementadas duas features novas a pedido do usuário: prazo para CPCV com datas calculadas na proposta, e inversão do padrão do campo de remodelação (euros em vez de percentual).
 
 ## 2. Contexto essencial
 
 **Stack**
-- Frontend: HTML, CSS e JS puro (sem framework, sem build). PWA com `manifest.json` e `sw.js` (network first, cache `zflip-v4`, ignora `/api`).
+- Frontend: HTML, CSS e JS puro (sem framework, sem build). PWA com `manifest.json` e `sw.js`.
 - Backend: Vercel Functions em `api/` (Node 24, ESM). Dependências: `@sparticuz/chromium`, `puppeteer-core`, `@supabase/supabase-js`, `pdf-lib`, `resend`.
 - Banco e arquivos: Supabase, projeto `ZFlipDB`, ref `srhrcbaeferxzwdneukx`, região eu-west-1.
 - E-mail: Resend. PDF: Chromium serverless (Puppeteer) + pdf-lib para juntar anexos.
@@ -27,7 +27,7 @@ Na sessão de 2026-09-26 foi implementado tudo o que a spec pedia e ainda não e
 
 **Variáveis de ambiente na Vercel** (valores nunca em texto)
 - `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`: todos os ambientes
-- `SUPABASE_SECRET_KEY` e `RESEND_API_KEY`: Production e Preview, tipo Secret (a Vercel não aceita Secret em Development e não permite baixar o valor com `vercel env pull`)
+- `SUPABASE_SECRET_KEY` e `RESEND_API_KEY`: Production e Preview, tipo Secret
 - `RESEND_FROM`: opcional, ainda não definida (padrão no código: `ZFlip Zuri Real Estate <onboarding@resend.dev>`)
 
 **Regras do projeto (CLAUDE.md da pasta)**
@@ -38,120 +38,114 @@ Na sessão de 2026-09-26 foi implementado tudo o que a spec pedia e ainda não e
 - Esforço alto só para Puppeteer/Chromium na Vercel e para o teste de escalões de IMT na conta reversa
 
 **Decisões já tomadas (não reabrir sem motivo novo)**
-- Preço de compra é **opcional** (decisão final do usuário; a spec foi atualizada). Sem ele, só a conta reversa é calculada e a coluna "Com preço de compra informado" mostra "Não informado".
+- Preço de compra é **opcional**. Sem ele, só a conta reversa é calculada.
 - Colunas: "Preço máximo (ROI alvo)" primeiro, "Com preço de compra informado" depois, na tela e no PDF.
-- Fotos: até 20; todas vão para o Supabase, reduzidas a 1600 px, cada uma com miniatura. O usuário escolhe até 4 **principais** (toque na foto, numeradas na ordem). A página 1 do PDF mostra miniaturas de todas; só as principais aparecem grandes, 2 por página.
-- Documentos: entram no PDF como páginas se forem PDF, JPG, PNG, TXT, CSV ou MD. Word, Excel, HEIC e WebP ficam "Somente listado" (não há conversão confiável na Vercel). Se um PDF ou imagem não abrir, a lista mostra "Não foi possível incluir".
-- Anexos (fotos e documentos) ficam **depois do cálculo**, opcionais. Nada vai ao servidor até o usuário gerar o PDF ou enviar.
-- Ao gerar ou enviar, abre uma janela pedindo o **nome do imóvel ou projeto** (obrigatório). O nome vira título do PDF, assunto do e-mail e nome do arquivo (`proposta-<nome>.pdf`).
-- Sem login. Tabela `negocios` com RLS ativo e **nenhuma política**: a chave pública não lê nada; todo acesso passa pela Secret key dentro das funções.
-- O servidor recalcula tudo com o mesmo `js/imt.js` e `js/engine.js` do navegador (`api/_lib/motor.js`), sem segunda cópia das fórmulas.
+- Fotos: até 20; todas no Supabase, reduzidas a 1600 px, com miniatura. Até 4 principais aparecem grandes no PDF.
+- Documentos: entram como páginas no PDF se PDF, JPG, PNG, TXT, CSV ou MD; Word/Excel/HEIC/WebP ficam "Somente listado".
+- Sem login. Tabela `negocios` com RLS ativo e nenhuma política: só a Secret key (dentro das funções) acessa.
+- O servidor recalcula tudo com o mesmo `js/imt.js` e `js/engine.js` do navegador (`api/_lib/motor.js`).
 - Percentuais são guardados como fração (0.05 = 5%). Em `remodelacao_valor_ou_pct`: fração no modo `pct`, euros no modo `fixo`.
-- Uploads vão do celular direto ao Storage por URL assinada (fetch PUT), porque a Vercel limita o corpo a 4,5 MB.
+- **Novo nesta sessão:** modo de remodelação passa a ter **valor direto em euros como padrão** (antes era `%`). O usuário pode trocar para `%` manualmente. O campo de input não tem mais valor pré-preenchido (antes tinha `12`, que fazia sentido como `12%` mas não como `12€`); fica em branco até o usuário digitar.
+- **Novo nesta sessão:** tag automática da proposta (formato `0001_Zuri_AAAAMMDD_NomeDoImovel`), calculada no servidor (`api/_lib/nome.js`) logo após o insert em `negocios`, não como coluna gerada (a normalização de acentos via `unaccent` não é permitida em generated column do Postgres).
+- **Novo nesta sessão:** prazo para CPCV, em dias, contado a partir da data de criação da proposta (`negocios.criado_em`). Na folha de proposta aparecem quatro datas/prazos: Data de criação, Data CPCV (criação + dias), Prazo do negócio (meses, campo já existente), Data de venda prevista (Data CPCV + prazo em meses). O campo de dias não entra em nenhum cálculo financeiro, é só para exibição na proposta.
 
 ## 3. O que já foi feito
 
-Sessão anterior (2026-09-16), resumido: calculadora, motor, gráfico de margem, PDF em jsPDF, deploy na Vercel, campos verdes, preço de compra opcional, service worker network first.
+Sessões anteriores (2026-09-16 e 2026-09-26), resumido: calculadora, motor, gráfico de margem, PDF em servidor via Chromium, deploy na Vercel, upload de fotos/documentos, e-mail via Resend, WhatsApp, correções de iPhone, numeração sequencial e tag (código pronto mas migração ainda não aplicada no banco).
 
-Sessão de 2026-09-26, em ordem:
-1. Variáveis de ambiente gravadas pelo Vercel CLI (a conexão MCP da Vercel deu 403). CLI instalado globalmente e logado; pasta ligada ao projeto.
-2. Supabase: migrações 001 (tabela `negocios`, bucket privado `documentos-negocios`), 002 (`nome`), 003 (fotos até 20, `miniaturas`, `fotos_principais`). Aplicadas no projeto e versionadas em `supabase/`.
-3. Funções `api/negocio.js`, `api/pdf.js`, `api/email.js`; template `api/_lib/proposta.js` com a paleta ZURI; `api/_lib/anexos.js` para juntar documentos.
-4. Testes: local, deploy de preview e produção; Chromium serverless gera o PDF em cerca de 8 s a frio.
-5. Correções vindas dos testes no iPhone do usuário:
-   - Erro `window.supabase.createClient` (a biblioteca do CDN não carregava no iPhone): removida; upload por fetch simples. `api/config.js` foi removido.
-   - Campos saindo da tela: grade `minmax(0, 1fr)`, campos de 16 px (evita zoom do iOS), campos de arquivo escondidos com regra específica (uma regra de largura 100% os esticava).
-   - "no files selected": botões próprios em português com contador.
-   - PDF não abria: `window.open` depois de esperar o servidor é bloqueado no iOS. Agora aparece um painel com Abrir PDF (link) e Compartilhar PDF.
-   - Documentos `.txt` não entravam: passaram a entrar como páginas de texto; a tela avisa por arquivo "entra no PDF" ou "só listado".
-   - Rodapé caindo sozinho numa página em branco: lista de documentos e rodapé agrupados (`.fecho`).
-6. Campo de e-mail vem preenchido com `nielebock@gmail.com`.
-7. Fotos: até 20, com principais e miniaturas (decisão final acima).
+Sessão de 2026-09-28, em ordem:
+1. Aplicada a migração `supabase/004_tag.sql` no banco via MCP do Supabase (CLI não estava instalada na máquina local; usuário escolheu o MCP em vez de instalar a CLI). Conferida com leitura só de `numero, tag, nome`: 3 negócios existentes receberam tag retroativa corretamente.
+2. Implementado prazo para CPCV:
+   - Novo campo no formulário `index.html`: "Prazo para CPCV (dias)", padrão 30, posicionado antes de "Prazo do negócio (meses)".
+   - `js/app.js`: lê o novo campo (`prazo_cpcv_dias`) em `readInputs()`.
+   - `api/negocio.js`: valida (inteiro, `>= 0`) e grava o campo no insert de `negocios`.
+   - `api/_lib/proposta.js`: nova função `blocoPrazos()` que calcula e renderiza Data de criação, Data CPCV, Prazo do negócio, Data de venda prevista, num bloco novo (`.prazos`, grade de 4 colunas) logo no início do corpo do PDF, antes da tabela financeira.
+   - `supabase/005_prazo_cpcv.sql`: migração `alter table` adicionando `prazo_cpcv_dias integer not null default 30 check (>= 0)`.
+   - Migração aplicada no banco via MCP do Supabase, depois de uma primeira tentativa ser bloqueada pelo classificador de permissões do Claude Code (ação marcada "Production Deploy"); usuário pediu explicitamente para tentar de novo e a segunda tentativa passou. Conferida com leitura de `numero, tag, prazo_meses, prazo_cpcv_dias`.
+3. Invertido o padrão do modo de remodelação: `<select>` passou a ter `fixo` (Valor direto em €) selecionado por padrão, em vez de `pct` (%). Label inicial ajustada para "Remodelação (€)" e removido o valor pré-preenchido `12` do input (não fazia sentido como padrão em euros).
+4. Todas as mudanças da sessão commitadas, enviadas ao GitHub e mescladas na `main` (usuário escolheu "commitar e enviar direto para main" entre três opções oferecidas). Isso também publicou, pela primeira vez em produção, a feature de tag automática da proposta e a numeração sequencial, que já estavam prontas em código desde 2026-09-26 mas nunca tinham sido mescladas na `main` (ficaram só na branch `claude/funny-rubin-cx1nnd`).
+5. Deploy de produção confirmado como "Ready" via `vercel ls --non-interactive` (commit `c3bbcea`, ~1 minuto após o push).
 
 **Descartado**
-- jsPDF no navegador: substituído por PDF no servidor (spec).
-- supabase-js via CDN no navegador: não carregou no iPhone.
-- Abrir o PDF com `window.open` automático: bloqueado no iOS.
-- Guardar só as 4 fotos principais: o usuário quer todas no banco.
+- Instalar a CLI do Supabase localmente: usuário preferiu usar o MCP já conectado.
+- Deixar um valor padrão em euros no campo de remodelação (ex. manter `12`): descartado por não ter base real; campo fica em branco até o usuário preencher.
 
 ## 4. Estado atual
 
-**Funciona (testado)**
-- Cálculo das duas contas, IMT, casos limite (sem preço de compra, IMT desligado, prazo 0, remodelação fixa).
-- Fluxo completo em Chrome com tela de 390 px: anexos, nome, upload, PDF, e-mail para o endereço de teste do Resend, painel de abrir e compartilhar.
-- PDF de 1 página com até 20 miniaturas e 5 documentos; páginas de fotos grandes; documentos PDF, PNG e TXT embutidos. Os PDFs reais do usuário (Cartão Empresa e Certidão Permanente) embutem corretamente.
-- RLS: a chave pública lê zero linhas.
+**Funciona (testado até onde dá sem gerar negócio novo)**
+- Migrações 004 (tag) e 005 (prazo CPCV) aplicadas e conferidas por leitura direta no banco (Supabase MCP `execute_sql`).
+- Deploy de produção "Ready" na Vercel após o merge na `main`.
+- Lógica de cálculo de datas (`blocoPrazos` em `api/_lib/proposta.js`) revisada por leitura de código, mas **não testada gerando um PDF real** nesta sessão.
 
-**Não confirmado em aparelho real**
-- Painel Abrir PDF e Compartilhar PDF no iPhone depois das correções (o usuário não chegou a confirmar).
-- Compartilhamento por WhatsApp com arquivo (Web Share); o fallback wa.me foi testado só isoladamente.
-- Escolha das fotos principais e envio de muitas fotos no iPhone.
-- E-mail chegando de fato à caixa de entrada (foi testado com `delivered@resend.dev`; para `nielebock@gmail.com` não há confirmação registrada).
+**Não confirmado**
+- Gerar um PDF de verdade no app publicado e conferir visualmente o bloco "Prazos" (datas, formatação, quebra de layout com 4 colunas).
+- Testar o formulário no navegador (campo novo de dias, comportamento do select de remodelação com o novo padrão, label trocando corretamente ao alternar `%`/`€`).
+- Confirmar que negócios salvos antes desta sessão (que não tinham `prazo_cpcv_dias` antes da migração) exibem corretamente `30 dias` (valor padrão da coluna) na proposta, e não quebram o cálculo de datas.
+- Tudo que já estava "não confirmado em aparelho real" no handoff anterior (compartilhar por WhatsApp, painel Abrir/Compartilhar PDF no iPhone, e-mail chegando à caixa de entrada) continua sem confirmação nesta sessão.
 
-**Limitações conhecidas**
-- Remetente de teste do Resend: só entrega ao e-mail dono da conta Resend.
-- Word e Excel não entram no PDF (só listados).
-- O app não tem tela de histórico; para ver negócios, fotos e documentos usar o painel do Supabase (Table Editor, tabela `negocios`; Storage, bucket `documentos-negocios`, uma pasta por id com `fotos/`, `miniaturas/`, `documentos/` e o PDF).
-
-**Dados de teste**: sobrou 1 negócio ("Teste 7 fotos", id `9e7e9d0c-c5ed-4da0-a088-4a2c742699b9`) com os arquivos dele. O usuário já apagou os demais.
-
-**Git**: último commit `203df2c` (em `main`, publicado). `CLAUDE.md` e `zflip_spec_claude_code.md` continuam sem commit (são do usuário). Este `HANDOFF.md` foi reescrito e não foi commitado.
+**Limitações conhecidas** (herdadas, sem mudança)
+- Remetente de teste do Resend só entrega ao e-mail dono da conta.
+- Word e Excel não entram no PDF, só listados.
+- Sem tela de histórico no app; consulta é pelo painel do Supabase.
 
 ## 5. Próximos passos
 
-**Pendente, aplicar no painel do Supabase (SQL Editor):** rodar `supabase/004_tag.sql`. Adiciona `numero` (sequencial automático) e `tag` (coluna gerada, formato `0001_Zuri_AAAAMMDD_NomeDoImovel`) na tabela `negocios`. A tag é calculada automaticamente a cada negócio salvo (na gravação, que hoje acontece em Gerar PDF, Enviar e-mail e WhatsApp, decisão mantida) e passa a ser usada como nome do arquivo do PDF (Storage, download, anexo do e-mail). Negócios já salvos antes da migração recebem `numero`/`tag` retroativos na própria migração; o código tem fallback para o nome antigo (`proposta-<nome>`) caso `tag` venha vazia por algum motivo.
-
-Quando o usuário voltar com o domínio, o e-mail da Zuri e o Microsoft 365:
-1. Definir com o usuário **como o e-mail sai** (ver pergunta 1 abaixo) antes de escrever código.
-2. Se for Resend com domínio da Zuri: verificar o domínio no painel do Resend (registros DNS), criar `RESEND_FROM` na Vercel (ex.: `Zuri Real Estate <propostas@dominio>`, Production e Preview), republicar, testar um envio para um endereço que não seja o dono da conta.
-3. Remover o valor padrão `nielebock@gmail.com` de `#email_destino` em `index.html` (ou trocar por um endereço da Zuri).
-4. Se for Microsoft 365: avaliar Microsoft Graph (registro de aplicativo no Entra ID, permissão `Mail.Send`) em vez do Resend; segredos só em variáveis da Vercel.
-5. Testar no iPhone e no Android: gerar PDF, Abrir PDF, Compartilhar PDF no WhatsApp, escolha de fotos principais, e-mail.
-6. Implementar a rotina de limpeza decidida em 2026-09-28 (pergunta 4): antes de apagar um negócio, baixar manualmente do Supabase (fotos, documentos, PDF) para uma pasta local ou na nuvem. Ainda sem apoio no app; hoje é tudo manual no painel do Supabase.
-
-Melhorias possíveis, sem urgência: tela de histórico de negócios no app; logo real da Zuri no PDF; fotos originais em vez das reduzidas (custa muito mais armazenamento); 2FA na conta Vercel.
+1. Testar no navegador: abrir o app publicado, preencher um negócio, confirmar que o campo "Prazo para CPCV (dias)" aparece antes de "Prazo do negócio (meses)" e que o select de remodelação abre em "Valor direto (€)" com o input vazio.
+2. Gerar um PDF de teste (preferir interceptar a requisição ou reaproveitar um negócio existente, para não sujar o banco — ver armadilha já conhecida na seção 8) e conferir visualmente o bloco "Prazos": as quatro datas/valores, layout em 4 colunas, formatação de data em português.
+3. Conferir o caso de negócio antigo (antes da migração 005): gerar proposta para o negócio `numero=1` ("Teste 7 fotos") e confirmar que aparece `Prazo para CPCV: 30 dias` (valor padrão da coluna) sem erro.
+4. Seguir os próximos passos já pendentes do handoff anterior (ver seção 6 e HANDOFF.md de 2026-09-26, agora incorporado aqui): decidir envio de e-mail (Resend com domínio da Zuri vs. Microsoft 365), testar em iPhone/Android, implementar rotina de limpeza (baixar arquivos do Supabase antes de apagar negócio).
 
 ## 6. Perguntas em aberto
 
-1. **Envio de e-mail:** Resend com domínio verificado, ou Microsoft 365 (Outlook/Graph) como remetente? Qual será o endereço remetente? **Ainda em aberto** (resposta do usuário em 2026-09-28: ainda não tem a definição).
-2. ~~**Condomínio na fórmula reversa**~~ **Resolvido em 2026-09-28: não replicar.** O app segue sem descontar condomínio na conta reversa, como já estava.
-3. ~~**Chaves coladas na conversa**~~ **Resolvido em 2026-09-28: não rotacionar.** O usuário avalia o risco como baixo porque a conversa é privada.
-4. **Armazenamento / limpeza:** decidido em 2026-09-28 que, quando entrar o Microsoft 365, o fluxo será baixar manualmente os arquivos (fotos, documentos, PDF da proposta) do Supabase para uma pasta local ou na nuvem, e só então limpar o negócio do banco. Falta implementar essa rotina (hoje a limpeza só é feita manualmente no painel do Supabase, sem nenhum apoio no app). Ver item na seção 5.
-5. ~~**Regra de permissão do script de limpeza**~~ **Esclarecido em 2026-09-28:** é uma regra em `/permissions` do Claude Code (não do Supabase), que autorizava rodar `limpar.sh`. O script já foi apagado do disco; falta só confirmar em `/permissions` que a regra também foi removida, senão ela fica autorizando um comando que não existe mais.
+1. **Envio de e-mail:** Resend com domínio verificado, ou Microsoft 365 (Outlook/Graph) como remetente? Qual será o endereço remetente? Ainda em aberto, aguardando domínio e Microsoft 365 da Zuri.
+2. **Armazenamento / limpeza:** decidido em 2026-09-28 (sessão anterior) que, quando entrar o Microsoft 365, o fluxo será baixar manualmente os arquivos do Supabase antes de apagar um negócio. Falta implementar essa rotina no app; hoje é 100% manual no painel do Supabase.
+3. **Valor default do campo de remodelação em euros:** o campo ficou sem valor pré-preenchido (antes tinha `12`, herdado do modo `%`). Vale perguntar ao usuário se ele quer algum valor padrão em euros, ou se prefere mesmo deixar em branco.
+4. **Prazo para CPCV padrão de 30 dias:** valor escolhido sem confirmação explícita do usuário (ele só pediu o campo, não especificou o padrão). Vale confirmar se 30 é o número certo para o negócio da Zuri.
 
 ## 7. Artefatos relevantes
 
-**Arquivos**
+**Arquivos tocados nesta sessão**
 ```
-index.html, css/style.css, manifest.json, sw.js, vercel.json, package.json
+index.html                       campo prazo_cpcv_dias; select modo_remodelacao com fixo como padrão
+js/app.js                        readInputs() lê prazo_cpcv_dias
+api/negocio.js                   valida e grava prazo_cpcv_dias
+api/_lib/proposta.js             blocoPrazos() (Data criação/CPCV/venda) + CSS .prazos
+supabase/004_tag.sql             aplicada nesta sessão (numero + tag)
+supabase/005_prazo_cpcv.sql      aplicada nesta sessão (prazo_cpcv_dias)
+```
+
+**Arquivos gerais do projeto** (ver spec completa em `zflip_spec_claude_code.md`)
+```
+css/style.css, manifest.json, sw.js, vercel.json, package.json
 js/imt.js, js/engine.js          motor de cálculo (usado também no servidor)
-js/app.js                        formulário, tabela, gráfico de margem, botões
 js/arquivos.js                   fotos (até 20, principais) e documentos
 js/exportar.js                   nome do imóvel, upload, PDF, e-mail, WhatsApp
-api/negocio.js                   valida, calcula, salva, devolve URLs de upload
 api/pdf.js                       monta o PDF (Chromium + pdf-lib) e devolve link
 api/email.js                     envia o PDF anexado pelo Resend
 api/_lib/                        supabase.js, motor.js, proposta.js, anexos.js, nome.js, http.js
-supabase/001_negocios.sql, 002_nome.sql, 003_fotos_principais.sql
-zflip_spec_claude_code.md        spec (preço de compra opcional e fotos até 20 já atualizados)
+supabase/001..003                tabela negocios, bucket, fotos principais
 ```
 
 **Comandos úteis**
 ```
-vercel deploy --prod --yes                     publicar manualmente (o auto-deploy falhou uma vez)
 vercel ls --non-interactive                    deploys e status
 vercel env ls --non-interactive                variáveis (valores Secret aparecem ocultos)
-vercel env add NOME production --value "..." --sensitive --yes --non-interactive   uma chamada por ambiente
+git log origin/main..HEAD --oneline            confirmar se há commits locais não publicados
 ```
-SQL de conferência (somente leitura): `select nome, cardinality(fotos), cardinality(fotos_principais), pdf_path from public.negocios order by criado_em;`
+SQL de conferência (somente leitura):
+```sql
+select numero, tag, nome, prazo_meses, prazo_cpcv_dias from public.negocios order by numero;
+```
 
-**Como testar localmente as funções**: importar `api/negocio.js`, `api/pdf.js`, `api/email.js` e chamar `POST(new Request(...))` com as variáveis passadas na linha de comando (não gravar chaves em arquivo). `api/pdf.js` usa o Google Chrome local quando não está na Vercel (`CHROME_PATH` ou o caminho padrão do macOS). Para testar a interface, servir a pasta com um servidor estático que roteie `/api/*` para essas funções e dirigir o Chrome com `puppeteer-core` em tela de 390 px.
+**MCP do Supabase disponível nesta sessão:** `mcp__plugin_supabase_supabase__*` (apply_migration, execute_sql, list_projects, etc.), usado para aplicar as migrações 004 e 005 sem precisar da CLI instalada localmente. `project_id` = `srhrcbaeferxzwdneukx`.
 
 ## 8. Instruções pra próxima sessão
 
 - Ler `CLAUDE.md` e `zflip_spec_claude_code.md` primeiro. Português do Brasil, sem hífens nem travessões nem emojis em texto do app. Respostas concisas; perguntar só em ambiguidade real.
 - Não reabrir as decisões da seção 2.
-- **Cada teste completo cria um negócio e arquivos no Supabase.** Prefira testar sem gravar (interceptar a requisição, ou reaproveitar um negócio existente) e avise o usuário do que sobrar. O classificador de permissões do Claude Code bloqueia scripts que apagam arquivos na nuvem, mesmo com autorização em conversa; a limpeza é feita pelo usuário no painel do Supabase (`delete from public.negocios;` e esvaziar o bucket) ou por regra de permissão criada por ele em `/permissions`.
-- Armadilhas já pisadas: `window.open` depois de espera assíncrona é bloqueado no iOS (usar link tocado); `grid 1fr` sem `minmax(0, 1fr)` estoura a largura no celular; regra `.field input { width: 100% }` vence classes simples; no zsh, `for t in $var` não separa palavras (usar `${=var}`); `vercel env add` aceita um ambiente por chamada; valores Secret não podem ser lidos de volta.
-- Depois de publicar, confirmar que o deploy novo está no ar (o push já falhou uma vez em disparar o deploy automático) antes de dizer que está pronto.
+- **Antes de aplicar qualquer migração ou mudar dados em produção, confirmar explicitamente com o usuário se a ação for bloqueada pelo classificador de permissões do Claude Code** (aconteceu nesta sessão com uma migração aditiva e simples; o usuário confirmou e a segunda tentativa passou).
+- **Sempre verificar se a branch atual está mesclada na `main`** antes de dizer "está pronto" ou "está em produção". Nesta sessão, duas features inteiras (tag automática e numeração sequencial) ficaram prontas em código por dias sem nunca terem sido mescladas na `main`, então nunca chegaram à produção. Rodar `git log origin/main..HEAD --oneline` é suficiente para checar.
+- **Cada teste completo cria um negócio e arquivos no Supabase.** Prefira testar sem gravar (interceptar a requisição, ou reaproveitar um negócio existente) e avise o usuário do que sobrar. O classificador de permissões do Claude Code bloqueia scripts que apagam arquivos na nuvem, mesmo com autorização em conversa; a limpeza é feita pelo usuário no painel do Supabase.
+- Armadilhas já pisadas (herdadas): `window.open` depois de espera assíncrona é bloqueado no iOS; `grid 1fr` sem `minmax(0, 1fr)` estoura a largura no celular; regra `.field input { width: 100% }` vence classes simples; no zsh, `for t in $var` não separa palavras (usar `${=var}`); `vercel env add` aceita um ambiente por chamada; valores Secret não podem ser lidos de volta.
+- Depois de publicar, confirmar que o deploy novo está no ar (`vercel ls --non-interactive`, status "Ready" em Production) antes de dizer que está pronto.
 - Nunca colocar chaves em código do navegador, em arquivos do repositório ou neste documento.

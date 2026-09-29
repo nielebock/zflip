@@ -176,6 +176,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   .marca-sub { font-size: 8pt; letter-spacing: 0.4em; text-transform: uppercase; margin-top: 8px; color: var(--stone); }
   .titulo-doc { text-align: right; font-size: 9pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); }
   .titulo-doc strong { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18pt; letter-spacing: 0.04em; text-transform: none; color: var(--limestone); font-weight: 500; margin-top: 4px; }
+  .titulo-doc .tag-doc { display: block; font-size: 7.5pt; letter-spacing: 0.06em; text-transform: none; color: var(--stone); margin-top: 6px; }
   main { padding: 18px 48px 0; }
   h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 15pt; margin: 0 0 12px; color: var(--forest); }
   .bloco { margin-bottom: 16px; }
@@ -228,7 +229,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
       <div class="marca">ZURI</div>
       <div class="marca-sub">Real Estate</div>
     </div>
-    <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong></div>
+    <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong>${negocio.tag ? `<span class="tag-doc">${esc(negocio.tag)}</span>` : ''}</div>
   </header>
   <main>
     ${blocoPrazos(negocio)}
@@ -248,7 +249,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
     <div class="fecho-docs">${listaDocs}</div>
     <footer>
       <span>Gerado em ${esc(data)}</span>
-      <span>Negócio ${esc(negocio.id)}</span>
+      <span>${negocio.tag ? esc(negocio.tag) : `Negócio ${esc(negocio.id)}`}</span>
     </footer>
   </div>
   ${paginasFotos.join('')}

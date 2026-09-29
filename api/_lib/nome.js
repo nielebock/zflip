@@ -1,11 +1,11 @@
-// Tag da proposta: 0001_Zuri_20260928_T2Alvalade. numero vem da sequência do banco
+// Tag da proposta: 0001_Zuri_2026.09.28_T2Alvalade. numero vem da sequência do banco
 // (negocios_numero_seq), criadoEm é o timestamp de criação (criado_em), ambos devolvidos pelo insert.
 export function construirTag(numero, criadoEm, nome) {
-  const aaaammdd = new Date(criadoEm).toISOString().slice(0, 10).replace(/-/g, '');
+  const aaaaMmDd = new Date(criadoEm).toISOString().slice(0, 10).replace(/-/g, '.');
   const base = String(nome || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_]/g, '');
-  return `${String(numero).padStart(4, '0')}_Zuri_${aaaammdd}_${base}`;
+  return `${String(numero).padStart(4, '0')}_Zuri_${aaaaMmDd}_${base}`;
 }
 
 // Nome do arquivo a partir da tag da proposta.
