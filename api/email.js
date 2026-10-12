@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
-import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
+import { sql } from './_lib/db.js';
+import { baixarComoBuffer } from './_lib/armazenamento.js';
 import { nomeDeArquivo } from './_lib/nome.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -13,14 +14,13 @@ export async function POST(request) {
   const para = typeof body.para === 'string' ? body.para.trim() : '';
   if (!EMAIL.test(para)) return erro('E-mail do destinatário inválido');
 
-  const sb = supabaseAdmin();
-  const { data: negocio, error } = await sb.from('negocios').select('id, nome, tag, pdf_path').eq('id', body.id).single();
-  if (error || !negocio) return erro('Negócio não encontrado', 404);
+  const db = sql();
+  const [negocio] = await db`select id, nome, tag, pdf_path from public.negocios where id = ${body.id}`;
+  if (!negocio) return erro('Negócio não encontrado', 404);
   if (!negocio.pdf_path) return erro('Gere o PDF antes de enviar por e-mail', 409);
 
-  const { data: arquivo, error: erroDownload } = await sb.storage.from(BUCKET).download(negocio.pdf_path);
-  if (erroDownload || !arquivo) return erro('PDF não encontrado no Storage', 404);
-  const conteudo = Buffer.from(await arquivo.arrayBuffer());
+  const conteudo = await baixarComoBuffer(negocio.pdf_path);
+  if (!conteudo) return erro('PDF não encontrado no armazenamento', 404);
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error: erroEnvio } = await resend.emails.send({

@@ -1,14 +1,13 @@
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
-import { supabaseAdmin, BUCKET } from './_lib/supabase.js';
+import { sql } from './_lib/db.js';
+import { baixarComoBuffer, subirArquivo } from './_lib/armazenamento.js';
 import { renderProposta, renderTexto } from './_lib/proposta.js';
 import { nomeDoCaminho, prepararAnexos, juntar } from './_lib/anexos.js';
 import { nomeDeArquivo } from './_lib/nome.js';
 
 chromium.setGraphicsMode = false;
-
-const VALIDADE_LINK = 60 * 60 * 24 * 7; // 7 dias, para o link enviado pelo WhatsApp
 
 // Na Vercel usa o Chromium do @sparticuz/chromium; localmente, o Chrome instalado.
 async function abrirNavegador() {
@@ -25,17 +24,11 @@ async function abrirNavegador() {
   });
 }
 
-async function baixarComoDataUri(sb, caminho) {
-  const { data, error } = await sb.storage.from(BUCKET).download(caminho);
-  if (error || !data) return null; // upload não concluído: a foto fica de fora
-  const buf = Buffer.from(await data.arrayBuffer());
-  return `data:${data.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
-}
-
-async function baixarBytes(sb, caminho) {
-  const { data, error } = await sb.storage.from(BUCKET).download(caminho);
-  if (error || !data) return null; // upload não concluído: o documento fica só listado
-  return new Uint8Array(await data.arrayBuffer());
+// Fotos e miniaturas sempre chegam como JPEG (ver reduzirFoto em js/arquivos.js).
+async function baixarComoDataUri(caminho) {
+  const buf = await baixarComoBuffer(caminho);
+  if (!buf) return null; // upload não concluído: a foto fica de fora
+  return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
 
 // Converte HTML em PDF numa página nova do navegador já aberto.
@@ -54,9 +47,9 @@ export async function POST(request) {
   const body = await lerJson(request);
   if (!body || !idValido(body.id)) return erro('Identificador do negócio inválido');
 
-  const sb = supabaseAdmin();
-  const { data: negocio, error } = await sb.from('negocios').select('*').eq('id', body.id).single();
-  if (error || !negocio) return erro('Negócio não encontrado', 404);
+  const db = sql();
+  const [negocio] = await db`select * from public.negocios where id = ${body.id}`;
+  if (!negocio) return erro('Negócio não encontrado', 404);
 
   try {
     // Negócios novos: miniaturas de todas as fotos na página 1 e só as principais grandes.
@@ -64,12 +57,12 @@ export async function POST(request) {
     const temMiniaturas = (negocio.miniaturas || []).length > 0;
     const caminhosGrandes = temMiniaturas ? (negocio.fotos_principais || []) : (negocio.fotos || []).slice(0, 4);
     const caminhosMiniaturas = temMiniaturas ? negocio.miniaturas : caminhosGrandes;
-    const baixar = async lista => (await Promise.all(lista.map(c => baixarComoDataUri(sb, c)))).filter(Boolean);
+    const baixar = async lista => (await Promise.all(lista.map(baixarComoDataUri))).filter(Boolean);
     const fotos = { miniaturas: await baixar(caminhosMiniaturas), grandes: temMiniaturas ? await baixar(caminhosGrandes) : null };
     if (!fotos.grandes) fotos.grandes = fotos.miniaturas;
     const arquivos = await Promise.all((negocio.documentos || []).map(async c => ({
       nome: nomeDoCaminho(c),
-      bytes: await baixarBytes(sb, c),
+      bytes: await baixarComoBuffer(c),
     })));
     const browser = await abrirNavegador();
     let pdf;
@@ -81,17 +74,11 @@ export async function POST(request) {
     }
 
     const caminho = `${negocio.id}/${nomeDeArquivo(negocio)}.pdf`;
-    const { error: erroUpload } = await sb.storage.from(BUCKET)
-      .upload(caminho, pdf, { contentType: 'application/pdf', upsert: true });
-    if (erroUpload) throw erroUpload;
+    const url = await subirArquivo(caminho, pdf, 'application/pdf');
 
-    await sb.from('negocios').update({ pdf_path: caminho }).eq('id', negocio.id);
+    await db`update public.negocios set pdf_path = ${caminho} where id = ${negocio.id}`;
 
-    const { data: link, error: erroLink } = await sb.storage.from(BUCKET)
-      .createSignedUrl(caminho, VALIDADE_LINK);
-    if (erroLink) throw erroLink;
-
-    return json({ id: negocio.id, url: link.signedUrl });
+    return json({ id: negocio.id, url });
   } catch (e) {
     console.error('gerar pdf', e);
     return erro('Não foi possível gerar o PDF', 500);

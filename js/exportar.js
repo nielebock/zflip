@@ -95,18 +95,17 @@ async function chamarApi(caminho, corpo) {
   return dados;
 }
 
-// Envia direto ao Storage pela URL assinada, sem passar pelo limite de 4,5 MB da Vercel.
-async function enviarUm(url, arquivo) {
-  const corpo = new FormData();
-  corpo.append('cacheControl', '3600');
-  corpo.append('', arquivo);
-  let resp;
+// Envia direto ao Vercel Blob (token emitido por api/blob-upload.js), sem passar
+// pelo limite de 4,5 MB da Vercel. Import dinâmico porque os scripts do app são
+// simples (sem build); o pacote vem do esm.sh já compilado para o navegador.
+let uploadBlob = null;
+async function enviarUm(caminho, arquivo) {
+  if (!uploadBlob) ({ upload: uploadBlob } = await import('https://esm.sh/@vercel/blob@0.27.1/client'));
   try {
-    resp = await fetch(url, { method: 'PUT', body: corpo });
+    await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload', addRandomSuffix: false });
   } catch {
-    throw new Error(`Sem conexão ao enviar ${arquivo.name}. Tente de novo.`);
+    throw new Error(`Falha ao enviar ${arquivo.name}`);
   }
-  if (!resp.ok) throw new Error(`Falha ao enviar ${arquivo.name}`);
 }
 
 // Envia vários arquivos, quatro de cada vez, mostrando o progresso.
@@ -118,7 +117,7 @@ async function enviarTodos(tarefas, definirStatus) {
     while (!falhou && proximo < tarefas.length) {
       const tarefa = tarefas[proximo++];
       try {
-        await enviarUm(tarefa.url, tarefa.arquivo);
+        await enviarUm(tarefa.caminho, tarefa.arquivo);
       } catch (e) {
         falhou = true;
         throw e;
@@ -158,7 +157,7 @@ async function garantirPdf(inputs, definirStatus) {
   const criado = await chamarApi('/api/negocio', { nome, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
 
   const tarefas = [];
-  const juntar = (lista, arquivosDaLista) => lista.forEach((u, i) => tarefas.push({ url: u.url, arquivo: arquivosDaLista[i] }));
+  const juntar = (caminhos, arquivosDaLista) => caminhos.forEach((caminho, i) => tarefas.push({ caminho, arquivo: arquivosDaLista[i] }));
   juntar(criado.uploads.fotos, fotos);
   juntar(criado.uploads.miniaturas, miniaturas);
   juntar(criado.uploads.documentos, docs);
