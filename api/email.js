@@ -5,8 +5,10 @@ import { baixarComoBuffer } from './_lib/armazenamento.js';
 import { nomeDeArquivo } from './_lib/nome.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Remetente de teste do Resend até o domínio da Zuri ser verificado.
-const REMETENTE = process.env.RESEND_FROM || 'ZFlip Zuri Real Estate <onboarding@resend.dev>';
+// Domínio zurirealestate.pt verificado no Resend (DKIM, SPF e DMARC), só para envio.
+const REMETENTE = process.env.RESEND_FROM || 'ZFlip <propostas@zurirealestate.pt>';
+// propostas@ só encaminha, não tem caixa própria: respostas vão para o financeiro.
+const RESPONDER_PARA = 'financeiro@zurire.com';
 
 export async function POST(request) {
   const body = await lerJson(request);
@@ -26,6 +28,7 @@ export async function POST(request) {
   const { data, error: erroEnvio } = await resend.emails.send({
     from: REMETENTE,
     to: [para],
+    replyTo: RESPONDER_PARA,
     subject: negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate',
     text: [
       'Olá,',
