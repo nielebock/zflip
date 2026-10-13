@@ -31,7 +31,9 @@ export async function POST(request) {
       to: [para],
       cc: [FINANCEIRO],
       replyTo: FINANCEIRO,
-      subject: negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate',
+      subject: negocio.tag
+        ? `Proposta ${negocio.tag}${negocio.nome ? `: ${negocio.nome}` : ''}`
+        : (negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate'),
       text: [
         'Olá,',
         '',
@@ -39,7 +41,7 @@ export async function POST(request) {
           ? `Segue em anexo a folha de proposta do imóvel "${negocio.nome}", analisado pela Zuri Real Estate.`
           : 'Segue em anexo a folha de proposta do negócio analisado pela Zuri Real Estate.',
         '',
-        `Identificador do negócio: ${negocio.id}`,
+        `Identificador da proposta: ${negocio.tag || negocio.id}`,
         '',
         'Atenciosamente,',
         'Zuri Real Estate',
