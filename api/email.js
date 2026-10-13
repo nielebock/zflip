@@ -25,19 +25,6 @@ export async function POST(request) {
     const conteudo = await baixarComoBuffer(negocio.pdf_path);
     if (!conteudo) return erro('PDF não encontrado no armazenamento', 404);
 
-    // DIAGNOSTICO TEMPORARIO: achar onde está o caractere > 255
-    const achar = (nome, valor) => {
-      for (let i = 0; i < valor.length; i++) {
-        if (valor.charCodeAt(i) > 255) return `${nome}[${i}]=U+${valor.charCodeAt(i).toString(16)}`;
-      }
-      return null;
-    };
-    const subjectDiag = negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate';
-    const filenameDiag = `${nomeDeArquivo(negocio)}.pdf`;
-    const chave = process.env.RESEND_API_KEY || '';
-    const achados = [achar('REMETENTE', REMETENTE), achar('RESPONDER_PARA', RESPONDER_PARA), achar('para', para), achar('subject', subjectDiag), achar('filename', filenameDiag), achar('RESEND_API_KEY', chave)].filter(Boolean);
-    if (achados.length) return erro(`DIAGNOSTICO: ${achados.join(', ')} | tamanho da chave: ${chave.length}`, 500);
-
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error: erroEnvio } = await resend.emails.send({
       from: REMETENTE,
@@ -66,6 +53,6 @@ export async function POST(request) {
     return json({ enviado: true, emailId: data?.id });
   } catch (e) {
     console.error('enviar email', e);
-    return erro(`Falha no envio do e-mail: ${e?.message || e}`, 500); // DIAGNOSTICO TEMPORARIO
+    return erro('Não foi possível enviar o e-mail', 500);
   }
 }
