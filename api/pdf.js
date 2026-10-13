@@ -81,6 +81,6 @@ export async function POST(request) {
     return json({ id: negocio.id, url });
   } catch (e) {
     console.error('gerar pdf', e);
-    return erro(`Não foi possível gerar o PDF: ${e?.message || e}`, 500); // DIAGNOSTICO TEMPORARIO
+    return erro('Não foi possível gerar o PDF', 500);
   }
 }
