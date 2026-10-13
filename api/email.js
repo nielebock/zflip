@@ -34,8 +34,9 @@ export async function POST(request) {
     };
     const subjectDiag = negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate';
     const filenameDiag = `${nomeDeArquivo(negocio)}.pdf`;
-    const achados = [achar('REMETENTE', REMETENTE), achar('RESPONDER_PARA', RESPONDER_PARA), achar('para', para), achar('subject', subjectDiag), achar('filename', filenameDiag)].filter(Boolean);
-    if (achados.length) return erro(`DIAGNOSTICO: ${achados.join(', ')}`, 500);
+    const chave = process.env.RESEND_API_KEY || '';
+    const achados = [achar('REMETENTE', REMETENTE), achar('RESPONDER_PARA', RESPONDER_PARA), achar('para', para), achar('subject', subjectDiag), achar('filename', filenameDiag), achar('RESEND_API_KEY', chave)].filter(Boolean);
+    if (achados.length) return erro(`DIAGNOSTICO: ${achados.join(', ')} | tamanho da chave: ${chave.length}`, 500);
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error: erroEnvio } = await resend.emails.send({
