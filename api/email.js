@@ -11,43 +11,48 @@ const REMETENTE = process.env.RESEND_FROM || 'ZFlip <propostas@zurirealestate.pt
 const RESPONDER_PARA = 'financeiro@zurire.com';
 
 export async function POST(request) {
-  const body = await lerJson(request);
-  if (!body || !idValido(body.id)) return erro('Identificador do negócio inválido');
-  const para = typeof body.para === 'string' ? body.para.trim() : '';
-  if (!EMAIL.test(para)) return erro('E-mail do destinatário inválido');
+  try {
+    const body = await lerJson(request);
+    if (!body || !idValido(body.id)) return erro('Identificador do negócio inválido');
+    const para = typeof body.para === 'string' ? body.para.trim() : '';
+    if (!EMAIL.test(para)) return erro('E-mail do destinatário inválido');
 
-  const db = sql();
-  const [negocio] = await db`select id, nome, tag, pdf_path from public.negocios where id = ${body.id}`;
-  if (!negocio) return erro('Negócio não encontrado', 404);
-  if (!negocio.pdf_path) return erro('Gere o PDF antes de enviar por e-mail', 409);
+    const db = sql();
+    const [negocio] = await db`select id, nome, tag, pdf_path from public.negocios where id = ${body.id}`;
+    if (!negocio) return erro('Negócio não encontrado', 404);
+    if (!negocio.pdf_path) return erro('Gere o PDF antes de enviar por e-mail', 409);
 
-  const conteudo = await baixarComoBuffer(negocio.pdf_path);
-  if (!conteudo) return erro('PDF não encontrado no armazenamento', 404);
+    const conteudo = await baixarComoBuffer(negocio.pdf_path);
+    if (!conteudo) return erro('PDF não encontrado no armazenamento', 404);
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { data, error: erroEnvio } = await resend.emails.send({
-    from: REMETENTE,
-    to: [para],
-    replyTo: RESPONDER_PARA,
-    subject: negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate',
-    text: [
-      'Olá,',
-      '',
-      negocio.nome
-        ? `Segue em anexo a folha de proposta do imóvel "${negocio.nome}", analisado pela Zuri Real Estate.`
-        : 'Segue em anexo a folha de proposta do negócio analisado pela Zuri Real Estate.',
-      '',
-      `Identificador do negócio: ${negocio.id}`,
-      '',
-      'Atenciosamente,',
-      'Zuri Real Estate',
-    ].join('\n'),
-    attachments: [{ filename: `${nomeDeArquivo(negocio)}.pdf`, content: conteudo }],
-  });
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error: erroEnvio } = await resend.emails.send({
+      from: REMETENTE,
+      to: [para],
+      replyTo: RESPONDER_PARA,
+      subject: negocio.nome ? `Proposta de flip imobiliário: ${negocio.nome}` : 'Proposta de flip imobiliário, Zuri Real Estate',
+      text: [
+        'Olá,',
+        '',
+        negocio.nome
+          ? `Segue em anexo a folha de proposta do imóvel "${negocio.nome}", analisado pela Zuri Real Estate.`
+          : 'Segue em anexo a folha de proposta do negócio analisado pela Zuri Real Estate.',
+        '',
+        `Identificador do negócio: ${negocio.id}`,
+        '',
+        'Atenciosamente,',
+        'Zuri Real Estate',
+      ].join('\n'),
+      attachments: [{ filename: `${nomeDeArquivo(negocio)}.pdf`, content: conteudo }],
+    });
 
-  if (erroEnvio) {
-    console.error('resend', erroEnvio);
-    return erro(`Falha no envio do e-mail: ${erroEnvio.message || 'erro desconhecido'}`, 502);
+    if (erroEnvio) {
+      console.error('resend', erroEnvio);
+      return erro(`Falha no envio do e-mail: ${erroEnvio.message || 'erro desconhecido'}`, 502);
+    }
+    return json({ enviado: true, emailId: data?.id });
+  } catch (e) {
+    console.error('enviar email', e);
+    return erro(`Falha no envio do e-mail: ${e?.message || e}`, 500); // DIAGNOSTICO TEMPORARIO
   }
-  return json({ enviado: true, emailId: data?.id });
 }
