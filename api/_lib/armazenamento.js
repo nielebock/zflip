@@ -1,34 +1,52 @@
-// Camada de armazenamento de arquivos do ZFlip 2.0: hoje usa o Vercel Blob, para
-// o app funcionar sem o Supabase enquanto o SharePoint não é liberado pelo TI.
-// Quando o registro no Entra ID estiver pronto, só este arquivo muda (trocar
-// as três funções abaixo por chamadas ao Microsoft Graph); o resto do código
-// (negocio.js, pdf.js, email.js) não conhece o Vercel Blob diretamente.
+// Camada de armazenamento de arquivos do ZFlip 2.0.
+// Fotos e documentos sobem do celular direto para o Vercel Blob (contorna o
+// limite de 4,5 MB da função Vercel, que o Microsoft Graph não tem como
+// contornar sem expor o segredo do app no celular). Quando o PDF é gerado,
+// migrarParaSharePoint copia tudo (fotos, documentos, PDF) para a subpasta da
+// proposta no SharePoint e apaga a cópia temporária do Blob.
+// negocio.js e email.js só conhecem baixarComoBuffer e apagarArquivo; só este
+// arquivo sabe que existem dois provedores por baixo.
 import { put, head, del } from '@vercel/blob';
+import { enviarArquivo, baixarArquivo, apagarArquivoGraph } from './graph.js';
 
-// URL que o celular usa para enviar o arquivo direto ao armazenamento (sem passar
-// pelo limite de 4,5 MB da Vercel). O Blob não tem signed upload URL como o
-// Supabase; em vez disso devolve o próprio caminho e o token vai na função
-// api/blob-upload.js, chamada pelo client do @vercel/blob/client no navegador.
 export function caminhoParaUpload(caminho) {
   return { caminho };
 }
 
-export async function baixarComoBuffer(caminho) {
+async function baixarDoBlob(caminho) {
   try {
     const info = await head(caminho);
     const resp = await fetch(info.url);
     if (!resp.ok) return null;
     return Buffer.from(await resp.arrayBuffer());
   } catch {
-    return null; // upload não concluído ou arquivo removido
+    return null; // upload não concluído, arquivo removido, ou já migrado para o SharePoint
   }
 }
 
+export async function baixarComoBuffer(caminho) {
+  const doBlob = await baixarDoBlob(caminho);
+  if (doBlob) return doBlob;
+  return baixarArquivo(caminho).catch(() => null);
+}
+
+// Usado só para o PDF final, gerado no servidor: vai direto para o SharePoint.
 export async function subirArquivo(caminho, bytes, contentType) {
-  const { url } = await put(caminho, bytes, { access: 'public', contentType, addRandomSuffix: false });
-  return url;
+  return enviarArquivo(caminho, bytes, contentType);
 }
 
 export async function apagarArquivo(caminho) {
-  await del(caminho).catch(() => {}); // melhor esforço, não impede o restante do fluxo
+  await del(caminho).catch(() => {});
+  await apagarArquivoGraph(caminho).catch(() => {});
+}
+
+// Copia um arquivo do Blob (onde o celular fez upload) para o caminho definitivo
+// no SharePoint, e apaga a cópia temporária. Não falha o chamador: se o arquivo
+// não existir mais no Blob (já migrado antes, ou nunca enviado), só retorna false.
+export async function migrarParaSharePoint(caminhoAntigo, caminhoNovo) {
+  const bytes = await baixarDoBlob(caminhoAntigo);
+  if (!bytes) return false;
+  await enviarArquivo(caminhoNovo, bytes);
+  await del(caminhoAntigo).catch(() => {});
+  return true;
 }

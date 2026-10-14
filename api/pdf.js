@@ -2,7 +2,7 @@ import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 import { json, erro, lerJson, idValido } from './_lib/http.js';
 import { sql } from './_lib/db.js';
-import { baixarComoBuffer, subirArquivo } from './_lib/armazenamento.js';
+import { baixarComoBuffer, subirArquivo, migrarParaSharePoint } from './_lib/armazenamento.js';
 import { renderProposta, renderTexto } from './_lib/proposta.js';
 import { nomeDoCaminho, prepararAnexos, juntar } from './_lib/anexos.js';
 import { nomeDeArquivo } from './_lib/nome.js';
@@ -73,10 +73,36 @@ export async function POST(request) {
       await browser.close();
     }
 
-    const caminho = `${negocio.id}/${nomeDeArquivo(negocio)}.pdf`;
-    const url = await subirArquivo(caminho, pdf, 'application/pdf');
+    // Pasta da proposta no SharePoint: nomeada pela tag (legível), ou pelo id
+    // nos poucos negócios antigos que não tiverem tag.
+    const pasta = negocio.tag || negocio.id;
+    const caminhoPdf = `${pasta}/${nomeDeArquivo(negocio)}.pdf`;
+    const url = await subirArquivo(caminhoPdf, pdf, 'application/pdf');
 
-    await db`update public.negocios set pdf_path = ${caminho} where id = ${negocio.id}`;
+    // Migra fotos e documentos (hoje no Blob, por causa do upload direto do
+    // celular) para a mesma subpasta no SharePoint, trocando o prefixo do id
+    // pelo nome da pasta. Falha de um arquivo não impede os outros nem o PDF.
+    const migrarLista = async lista => Promise.all(lista.map(async caminhoAntigo => {
+      const resto = caminhoAntigo.startsWith(`${negocio.id}/`) ? caminhoAntigo.slice(negocio.id.length + 1) : caminhoAntigo;
+      const caminhoNovo = `${pasta}/${resto}`;
+      if (caminhoNovo === caminhoAntigo) return caminhoAntigo; // já migrado antes
+      const migrou = await migrarParaSharePoint(caminhoAntigo, caminhoNovo).catch(() => false);
+      return migrou ? caminhoNovo : caminhoAntigo;
+    }));
+    const [fotos, miniaturas, fotosPrincipais, documentos] = await Promise.all([
+      migrarLista(negocio.fotos || []),
+      migrarLista(negocio.miniaturas || []),
+      migrarLista(negocio.fotos_principais || []),
+      migrarLista(negocio.documentos || []),
+    ]);
+
+    await db`update public.negocios set
+      pdf_path = ${caminhoPdf},
+      fotos = ${fotos},
+      miniaturas = ${miniaturas},
+      fotos_principais = ${fotosPrincipais},
+      documentos = ${documentos}
+      where id = ${negocio.id}`;
 
     return json({ id: negocio.id, url });
   } catch (e) {
