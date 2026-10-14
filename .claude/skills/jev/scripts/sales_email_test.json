@@ -1,0 +1,31 @@
+{
+  "state": "Subject: AI agent for our order emails?\n\nHi, we run an online skincare store and want an AI agent to answer our order emails. Budget is signed off and we want to start next month. Can we book a call this week?\n\nMarta, Head of Operations",
+  "questions": {
+    "lead_strength": {
+      "type": "score",
+      "instructions": "How strong a sales lead is this email?",
+      "criteria": [
+        "Not a lead at all (spam, vendor, newsletter, job seeker, support, existing client)",
+        "Cold (vague interest, tiny budget, poor fit)",
+        "Warm (a real need that fits, but no budget or timeline yet)",
+        "Hot (a clear need that fits, plus at least two of: a stated budget, a stated timeline, a decision maker writing)"
+      ]
+    },
+    "email_kind": {
+      "type": "choice",
+      "instructions": "What kind of email is this?",
+      "criteria": {
+        "new_lead": "A new prospect asking about our services",
+        "existing_client": "A message from someone who is already a client",
+        "vendor_pitch": "Someone trying to sell us something",
+        "spam": "Unwanted bulk or irrelevant email",
+        "job_seeker": "Someone asking for a job",
+        "newsletter_or_support": "A newsletter, or a support request"
+      }
+    },
+    "needs_personal_reply": {
+      "type": "noul",
+      "instructions": "This email needs a personal reply from a team member today."
+    }
+  }
+}
