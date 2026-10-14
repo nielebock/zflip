@@ -11,7 +11,7 @@ Jev (`typesafe-ai/jev` on Vercel AI Gateway, TypeSafe AI) is not a chat model. I
 
 1. **Jev decides, Claude writes.** Replies, summaries and drafts are written by Claude, never by Jev.
 2. **When Jev is unsure, Claude makes the call.** Unsure means choice or score confidence below 0.6, or a noul probability between 0.2 and 0.8. Put those items in a "check these" pile and judge them yourself.
-3. **Ask before sending anything private.** Everything sent to Jev leaves the machine (OpenRouter, then TypeSafe). Before sending real emails, tickets, invoices, client or personal data, tell the user what will be sent and get a yes. Made-up test data needs no question.
+3. **Ask before sending anything private.** Everything sent to Jev leaves the machine (Vercel AI Gateway, then TypeSafe). Before sending real emails, tickets, invoices, client or personal data, tell the user what will be sent and get a yes. Made-up test data needs no question.
 4. **Never print, log or write the API key into a file.** It lives only in the cloud environment's network secret `AI_GATEWAY_API_KEY` (host `ai-gateway.vercel.sh`), never pasted in chat. The sandbox proxy injects it, so the key may not even be visible as an env var.
 5. Never let Jev's answer alone trigger an irreversible action (paying, deleting, sending). It only decides what a person looks at first.
 
