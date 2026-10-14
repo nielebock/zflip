@@ -106,7 +106,7 @@ async function enviarUm(caminho, arquivo, tentativas = 2) {
       await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload', addRandomSuffix: false });
       return;
     } catch (e) {
-      if (i === tentativas) throw new Error(`Falha ao enviar ${arquivo.name}`);
+      if (i === tentativas) throw new Error(`Falha ao enviar ${arquivo.name}: ${e?.message || e}`);
     }
   }
 }
