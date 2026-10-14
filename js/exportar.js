@@ -104,7 +104,9 @@ async function enviarUm(caminho, arquivo, tentativas = 2) {
   if (!uploadBlob) ({ upload: uploadBlob } = await import('https://esm.sh/@vercel/blob@0.27.1/client'));
   for (let i = 1; i <= tentativas; i++) {
     try {
-      await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload', addRandomSuffix: false });
+      // addRandomSuffix já vai fixo em false no token emitido por api/blob-upload.js;
+      // o client não pode repetir essa opção aqui (a lib do Vercel Blob rejeita).
+      await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload' });
       return;
     } catch (e) {
       if (i === tentativas) throw new Error(`Falha ao enviar ${arquivo.name}: ${e?.message || e}`);
