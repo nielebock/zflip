@@ -29,8 +29,8 @@ async function obterToken() {
       grant_type: 'client_credentials',
     }),
   });
-  if (!resp.ok) throw new Error(`Falha ao autenticar no Microsoft Graph: ${resp.status}`);
   const dados = await resp.json();
+  if (!resp.ok) throw new Error(`Falha ao autenticar no Microsoft Graph: ${resp.status} ${dados.error} ${dados.error_description}`);
   tokenCache = { valor: dados.access_token, expiraEm: Date.now() + dados.expires_in * 1000 };
   return tokenCache.valor;
 }
