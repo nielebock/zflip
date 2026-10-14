@@ -77,7 +77,11 @@ export async function POST(request) {
     // nos poucos negócios antigos que não tiverem tag.
     const pasta = negocio.tag || negocio.id;
     const caminhoPdf = `${pasta}/${nomeDeArquivo(negocio)}.pdf`;
-    const url = await subirArquivo(caminhoPdf, pdf, 'application/pdf');
+    await subirArquivo(caminhoPdf, pdf, 'application/pdf');
+    // Não devolve a URL do SharePoint: pediria login de conta Microsoft da Zuri
+    // para quem recebe a proposta. api/arquivo.js serve o PDF com as credenciais
+    // do app, sem exigir login de quem abre o link.
+    const url = `/api/arquivo?id=${negocio.id}`;
 
     // Migra fotos e documentos (hoje no Blob, por causa do upload direto do
     // celular) para a mesma subpasta no SharePoint, trocando o prefixo do id

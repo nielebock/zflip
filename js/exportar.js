@@ -38,7 +38,8 @@ async function compartilharPdf() {
       // outro erro: segue para o link do WhatsApp
     }
   }
-  const texto = `Proposta de flip imobiliário, ${negocio.nome}: ${negocio.urlPdf}`;
+  const urlAbsoluta = new URL(negocio.urlPdf, location.href).href;
+  const texto = `Proposta de flip imobiliário, ${negocio.nome}: ${urlAbsoluta}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
