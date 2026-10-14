@@ -29,8 +29,8 @@ async function obterToken() {
       grant_type: 'client_credentials',
     }),
   });
-  if (!resp.ok) throw new Error(`Falha ao autenticar no Microsoft Graph: ${resp.status}`);
   const dados = await resp.json();
+  if (!resp.ok) throw new Error(`Falha ao autenticar no Microsoft Graph: ${resp.status} ${dados.error} ${dados.error_description}`);
   tokenCache = { valor: dados.access_token, expiraEm: Date.now() + dados.expires_in * 1000 };
   return tokenCache.valor;
 }
@@ -41,14 +41,14 @@ async function obterDriveId() {
   const respSite = await fetch(`https://graph.microsoft.com/v1.0/sites/${HOSTNAME}:${SITE_PATH}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!respSite.ok) throw new Error(`Falha ao localizar o site do SharePoint: ${respSite.status}`);
   const site = await respSite.json();
+  if (!respSite.ok) throw new Error(`Falha ao localizar o site do SharePoint: ${respSite.status} ${site?.error?.code} ${site?.error?.message}`);
 
   const respDrive = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!respDrive.ok) throw new Error(`Falha ao localizar a biblioteca de documentos: ${respDrive.status}`);
   const drive = await respDrive.json();
+  if (!respDrive.ok) throw new Error(`Falha ao localizar a biblioteca de documentos: ${respDrive.status} ${drive?.error?.code} ${drive?.error?.message}`);
   driveIdCache = drive.id;
   return driveIdCache;
 }
