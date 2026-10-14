@@ -89,7 +89,7 @@ export async function POST(request) {
       const migrou = await migrarParaSharePoint(caminhoAntigo, caminhoNovo).catch(() => false);
       return migrou ? caminhoNovo : caminhoAntigo;
     }));
-    const [fotos, miniaturas, fotosPrincipais, documentos] = await Promise.all([
+    const [fotosCaminhos, miniaturasCaminhos, fotosPrincipaisCaminhos, documentosCaminhos] = await Promise.all([
       migrarLista(negocio.fotos || []),
       migrarLista(negocio.miniaturas || []),
       migrarLista(negocio.fotos_principais || []),
@@ -98,10 +98,10 @@ export async function POST(request) {
 
     await db`update public.negocios set
       pdf_path = ${caminhoPdf},
-      fotos = ${fotos},
-      miniaturas = ${miniaturas},
-      fotos_principais = ${fotosPrincipais},
-      documentos = ${documentos}
+      fotos = ${fotosCaminhos},
+      miniaturas = ${miniaturasCaminhos},
+      fotos_principais = ${fotosPrincipaisCaminhos},
+      documentos = ${documentosCaminhos}
       where id = ${negocio.id}`;
 
     return json({ id: negocio.id, url });
