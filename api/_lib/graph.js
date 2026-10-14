@@ -12,9 +12,11 @@ let driveIdCache = null;
 async function obterToken() {
   if (tokenCache && tokenCache.expiraEm > Date.now() + 60_000) return tokenCache.valor;
 
-  const tenantId = process.env.SHAREPOINT_TENANT_ID;
-  const clientId = process.env.SHAREPOINT_CLIENT_ID;
-  const clientSecret = process.env.SHAREPOINT_CLIENT_SECRET;
+  // .trim() por segurança: espaço ou quebra de linha colado por engano já
+  // corrompeu uma chave de API antes (ver HANDOFF.md, incidente do Resend).
+  const tenantId = process.env.SHAREPOINT_TENANT_ID?.trim();
+  const clientId = process.env.SHAREPOINT_CLIENT_ID?.trim();
+  const clientSecret = process.env.SHAREPOINT_CLIENT_SECRET?.trim();
   if (!tenantId || !clientId || !clientSecret) {
     throw new Error('Variáveis SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID ou SHAREPOINT_CLIENT_SECRET não configuradas');
   }
