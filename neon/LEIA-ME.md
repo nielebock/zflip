@@ -19,40 +19,20 @@
 5. **Resend**: domínio `zurirealestate.pt` verificado (DKIM, SPF, DMARC, região eu-west-1, sem MX, só envio).
 6. **Testado de ponta a ponta em 13/10**: criar negócio, gerar PDF, enviar e-mail, tudo confirmado funcionando via chamadas diretas à API em produção.
 
+## SharePoint, em produção desde 14/10
+
+Migração para o SharePoint concluída e testada de ponta a ponta (gerar PDF, migrar fotos/documentos, enviar e-mail lendo do SharePoint). `api/_lib/graph.js` fala com o Microsoft Graph (client credentials, permissão `Sites.Selected` só no site `ZURI-FINANCEIRO`). `api/_lib/armazenamento.js` orquestra: fotos e documentos sobem do celular para o Vercel Blob (contorna o limite de 4,5 MB da função), e ao gerar o PDF, `migrarParaSharePoint` copia tudo para a subpasta da proposta (nomeada pela tag, ex. `0006_Zuri_2026.10.14_NomeDoImovel`) dentro de **"ZURI - Novos Investimentos/ZURI - Propostas"**, no site `arjonholding.sharepoint.com/sites/ZURI-FINANCEIRO`, biblioteca "Documentos Compartilhados", e apaga a cópia temporária do Blob.
+
+Variáveis em uso no Vercel: `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET` (Production e Preview).
+
+**Dois erros reais encontrados e corrigidos no dia 14/10**, documentar para não repetir:
+1. Bug de sintaxe em `api/pdf.js`: `const [fotos, ...]` da migração colidia com `const fotos` já usado para os dados do PDF, quebrava a função inteira (`FUNCTION_INVOCATION_FAILED` cru, sem chegar ao try/catch). Corrigido renomeando as variáveis da migração.
+2. Confusão no e-mail do TI sobre qual campo é o segredo: o e-mail trazia "KEY" (formato `4JG8Q~dlwGYKlR...`, esse é o Secret Value de verdade) e "VALUE" (um GUID, que na realidade era o Secret ID). Os rótulos do e-mail do TI estavam trocados em relação aos nomes do portal do Entra. Além disso, um espaço ou quebra de linha colado junto ao secret causava `AADSTS7000215: Invalid client secret` mesmo com o valor certo (igual já tinha acontecido com o RESEND_API_KEY); `api/_lib/graph.js` agora aplica `.trim()` nas três variáveis por segurança.
+
 ## O que falta
 
-- **Rodar no SQL Editor do Neon** (ainda pendente, o usuário vai fazer): apagar o negócio de teste e reiniciar a numeração em 6, já que existem 5 propostas no sistema antigo.
-  ```sql
-  delete from public.negocios where id = '0e3c89ee-888d-45bd-acf9-d3e8cda4b4b0';
-  alter sequence public.negocios_numero_seq restart with 6;
-  ```
 - **Apagar as chaves antigas do Resend** no painel (a chave original, que tinha um caractere inválido colado nela, e a "v2" trocada em seguida), depois de confirmar que a chave mais nova funciona.
 - Testar no iPhone e Android: fotos, WhatsApp, Abrir/Compartilhar PDF (herdado do app antigo, nunca confirmado lá nem aqui). Instalar como PWA: abrir o site, "Adicionar à Tela de Início" (iPhone) ou "Adicionar à tela inicial" (Android).
+- Testar o fluxo completo com fotos e documentos reais (o teste de 14/10 foi só com o PDF, sem anexos), confirmando que a migração do Blob para o SharePoint funciona para eles também.
 - Migrar os poucos negócios de teste do Supabase antigo, se fizer sentido manter histórico.
 - Decidir quando desligar de vez o projeto Supabase/Vercel antigo.
-
-## SharePoint, quando o TI liberar
-
-A pasta raiz **"Zuri - Propostas"** já existe no SharePoint da Zuri. Quando o Graph estiver liberado, cada proposta cria uma subpasta dentro dela, nomeada pela própria tag (`0006_Zuri_2026.10.13_NomeDoImovel`), com fotos, documentos e o PDF final.
-
-No código, só `api/_lib/armazenamento.js` muda: as três funções (`subirArquivo`, `baixarComoBuffer`, `caminhoParaUpload`) passam a chamar o Microsoft Graph em vez do Vercel Blob. `api/negocio.js`, `api/pdf.js` e `api/email.js` não mudam, porque só conhecem essas três funções.
-
-**O que pedir ao TI** (duas partes, a segunda não dá para fazer só pelo portal):
-
-**Parte 1, no portal do Entra (entra.microsoft.com), alguém com permissão de administrador:**
-1. Identity > Applications > App registrations > New registration
-2. Nome: `ZFlip - Acesso SharePoint`
-3. Supported account types: Accounts in this organizational directory only (só a Zuri)
-4. Redirect URI: em branco (acesso de aplicativo, sem usuário logando)
-5. Register
-6. Anotar: Application (client) ID e Directory (tenant) ID
-7. Certificates & secrets > New client secret, validade 12 ou 24 meses, copiar o Value na hora (some depois)
-8. API permissions > Add a permission > Microsoft Graph > Application permissions > buscar `Sites` > marcar `Sites.Selected` > Add permissions
-9. Grant admin consent for Zuri
-
-**Parte 2, autorizar o aplicativo na pasta específica (Graph Explorer, alguém com acesso de admin ao site do SharePoint):**
-1. developer.microsoft.com/graph/graph-explorer, logar como admin
-2. `GET` para achar o ID do site onde fica "Zuri - Propostas"
-3. `POST` nesse site, concedendo permissão `write` ao `Application (client) ID` da Parte 1
-
-Quando o TI devolver Client ID, Tenant ID e Client Secret, a troca do código fica pronta em poucas horas.
