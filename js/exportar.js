@@ -99,12 +99,15 @@ async function chamarApi(caminho, corpo) {
 // pelo limite de 4,5 MB da Vercel. Import dinâmico porque os scripts do app são
 // simples (sem build); o pacote vem do esm.sh já compilado para o navegador.
 let uploadBlob = null;
-async function enviarUm(caminho, arquivo) {
+async function enviarUm(caminho, arquivo, tentativas = 2) {
   if (!uploadBlob) ({ upload: uploadBlob } = await import('https://esm.sh/@vercel/blob@0.27.1/client'));
-  try {
-    await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload', addRandomSuffix: false });
-  } catch {
-    throw new Error(`Falha ao enviar ${arquivo.name}`);
+  for (let i = 1; i <= tentativas; i++) {
+    try {
+      await uploadBlob(caminho, arquivo, { access: 'public', handleUploadUrl: '/api/blob-upload', addRandomSuffix: false });
+      return;
+    } catch (e) {
+      if (i === tentativas) throw new Error(`Falha ao enviar ${arquivo.name}`);
+    }
   }
 }
 
