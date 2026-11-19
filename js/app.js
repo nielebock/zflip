@@ -38,6 +38,7 @@ function readInputs() {
   return {
     preco_venda: toNum(form.preco_venda.value),
     preco_compra: toNumOrNull(form.preco_compra.value),
+    area_m2: toNumOrNull(form.area_m2.value),
     aplicar_imt: form.aplicar_imt.checked,
     comissao_venda_pct: pct(form.comissao_venda_pct.value),
     iva_comissao_pct: pct(form.iva_comissao_pct.value),
@@ -67,6 +68,8 @@ function fmtPct(v) {
 const ROWS = [
   { key: 'preco_venda', label: 'Preço de venda', fmt: fmtEuro },
   { key: 'preco_compra', label: 'Preço de compra', fmt: fmtEuro },
+  { calc: (c, area) => c.preco_venda / area, label: 'Preço de venda por m²', fmt: fmtEuro, precisaArea: true },
+  { calc: (c, area) => c.preco_compra / area, label: 'Preço de compra por m²', fmt: fmtEuro, precisaArea: true },
   { key: 'remodelacao', label: 'Remodelação', fmt: fmtEuro },
   { key: 'custos_juridicos', label: 'Custos jurídicos', fmt: fmtEuro },
   { key: 'total_outros_custos', label: 'Total de outros custos', fmt: fmtEuro },
@@ -82,8 +85,12 @@ const ROWS = [
 function renderResults(result, inputs) {
   resultTableBody.innerHTML = '';
   const { conta1, conta2 } = result;
+  const areaAtual = inputs.area_m2;
 
   ROWS.forEach(row => {
+    if (row.precisaArea && !areaAtual) return; // sem área informada, não mostra €/m²
+    const valorDe = conta => row.calc ? row.calc(conta, areaAtual) : conta[row.key];
+
     const tr = document.createElement('tr');
     const tdLabel = document.createElement('td');
     tdLabel.textContent = row.label;
@@ -93,7 +100,7 @@ function renderResults(result, inputs) {
     if (row.isento && !inputs.aplicar_imt) {
       tdMaximo.textContent = 'Isento';
     } else {
-      tdMaximo.textContent = row.fmt(conta2[row.key]);
+      tdMaximo.textContent = row.fmt(valorDe(conta2));
     }
     tr.appendChild(tdMaximo);
 
@@ -103,7 +110,7 @@ function renderResults(result, inputs) {
     } else if (row.isento && !inputs.aplicar_imt) {
       tdInformado.textContent = 'Isento';
     } else {
-      tdInformado.textContent = row.fmt(conta1[row.key]);
+      tdInformado.textContent = row.fmt(valorDe(conta1));
     }
     tr.appendChild(tdInformado);
 

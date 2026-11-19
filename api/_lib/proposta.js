@@ -5,6 +5,8 @@
 const LINHAS = [
   { key: 'preco_venda', label: 'Preço de venda', tipo: 'euro' },
   { key: 'preco_compra', label: 'Preço de compra', tipo: 'euro' },
+  { calc: (c, area) => c.preco_venda / area, label: 'Preço de venda por m²', tipo: 'euro', precisaArea: true },
+  { calc: (c, area) => c.preco_compra / area, label: 'Preço de compra por m²', tipo: 'euro', precisaArea: true },
   { key: 'remodelacao', label: 'Remodelação', tipo: 'euro' },
   { key: 'custos_juridicos', label: 'Custos jurídicos', tipo: 'euro' },
   { key: 'total_outros_custos', label: 'Total de outros custos', tipo: 'euro' },
@@ -31,10 +33,11 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function valor(conta, linha, aplicarImt) {
+function valor(conta, linha, aplicarImt, area) {
   if (!conta) return 'Não informado';
   if (linha.isento && !aplicarImt) return 'Isento';
-  return linha.tipo === 'pct' ? fmtPct(conta[linha.key]) : fmtEuro(conta[linha.key]);
+  const v = linha.calc ? linha.calc(conta, area) : conta[linha.key];
+  return linha.tipo === 'pct' ? fmtPct(v) : fmtEuro(v);
 }
 
 function blocoMargem(direta, reversa) {
@@ -106,11 +109,12 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
     dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Lisbon',
   }).format(new Date());
 
-  const linhas = LINHAS.map(l => `
+  const area = negocio.area_m2;
+  const linhas = LINHAS.filter(l => !l.precisaArea || area).map(l => `
       <tr class="${l.destaque ? 'destaque' : ''}">
         <td>${l.label}</td>
-        <td>${valor(reversa, l, aplicarImt)}</td>
-        <td>${valor(direta, l, aplicarImt)}</td>
+        <td>${valor(reversa, l, aplicarImt, area)}</td>
+        <td>${valor(direta, l, aplicarImt, area)}</td>
       </tr>`).join('');
 
   // Colunas conforme a quantidade, para 20 miniaturas não ocuparem a página inteira.
@@ -177,6 +181,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   .titulo-doc { text-align: right; font-size: 9pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); }
   .titulo-doc strong { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18pt; letter-spacing: 0.04em; text-transform: none; color: var(--limestone); font-weight: 500; margin-top: 4px; }
   .titulo-doc .tag-doc { display: block; font-size: 7.5pt; letter-spacing: 0.06em; text-transform: none; color: var(--stone); margin-top: 6px; }
+  .criado-por { padding: 6px 48px 0; text-align: right; font-size: 8pt; letter-spacing: 0.04em; color: var(--mineral); }
   main { padding: 18px 48px 0; }
   h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 15pt; margin: 0 0 12px; color: var(--forest); }
   .bloco { margin-bottom: 16px; }
@@ -231,6 +236,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
     </div>
     <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong>${negocio.tag ? `<span class="tag-doc">${esc(negocio.tag)}</span>` : ''}</div>
   </header>
+  ${negocio.criado_por ? `<div class="criado-por">Criado por ${esc(negocio.criado_por)}</div>` : ''}
   <main>
     ${blocoPrazos(negocio)}
     <section class="bloco">
@@ -248,7 +254,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   <div class="fecho">
     <div class="fecho-docs">${listaDocs}</div>
     <footer>
-      <span>Gerado em ${esc(data)}${negocio.criado_por ? ` · por ${esc(negocio.criado_por)}` : ''}</span>
+      <span>Gerado em ${esc(data)}</span>
       <span>${negocio.tag ? esc(negocio.tag) : `Negócio ${esc(negocio.id)}`}</span>
     </footer>
   </div>

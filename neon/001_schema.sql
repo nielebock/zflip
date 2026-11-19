@@ -17,6 +17,7 @@ create table if not exists public.negocios (
 
   preco_venda numeric not null,
   preco_compra numeric,
+  area_m2 numeric,
   aplicar_imt boolean not null default false,
   comissao_venda_pct numeric not null,
   iva_comissao_pct numeric not null,
