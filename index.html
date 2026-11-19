@@ -36,7 +36,7 @@
       <div class="field toggle-field">
         <label for="aplicar_imt">Aplicar IMT?</label>
         <label class="switch">
-          <input type="checkbox" id="aplicar_imt" name="aplicar_imt" checked>
+          <input type="checkbox" id="aplicar_imt" name="aplicar_imt">
           <span class="slider"></span>
         </label>
       </div>
@@ -172,6 +172,9 @@
     <h3>Nome do imóvel ou projeto</h3>
     <p class="dica">Aparece no título do relatório e no nome do arquivo.</p>
     <input type="text" id="nome_imovel" maxlength="80" required autocomplete="off" placeholder="Ex.: T2 Alvalade">
+    <h3>Criado por</h3>
+    <p class="dica">Fica registrado na proposta para saber quem a montou.</p>
+    <input type="text" id="criado_por" maxlength="80" required autocomplete="off" placeholder="Seu nome">
     <div class="dlg-acoes">
       <button type="button" id="nome-cancelar" class="btn-secondary">Cancelar</button>
       <button type="submit" class="btn-primary">Continuar</button>

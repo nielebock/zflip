@@ -13,10 +13,11 @@ create table if not exists public.negocios (
   id uuid primary key default gen_random_uuid(),
   criado_em timestamptz not null default now(),
   nome text check (nome is null or char_length(nome) <= 80),
+  criado_por text check (criado_por is null or char_length(criado_por) <= 80),
 
   preco_venda numeric not null,
   preco_compra numeric,
-  aplicar_imt boolean not null default true,
+  aplicar_imt boolean not null default false,
   comissao_venda_pct numeric not null,
   iva_comissao_pct numeric not null,
   roi_alvo_pct numeric not null,

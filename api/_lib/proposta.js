@@ -248,7 +248,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   <div class="fecho">
     <div class="fecho-docs">${listaDocs}</div>
     <footer>
-      <span>Gerado em ${esc(data)}</span>
+      <span>Gerado em ${esc(data)}${negocio.criado_por ? ` · por ${esc(negocio.criado_por)}` : ''}</span>
       <span>${negocio.tag ? esc(negocio.tag) : `Negócio ${esc(negocio.id)}`}</span>
     </footer>
   </div>

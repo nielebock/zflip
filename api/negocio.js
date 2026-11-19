@@ -68,6 +68,8 @@ export async function POST(request) {
   const { inputs, fotos = [], documentos = [], principais = [] } = body;
   const nome = typeof body.nome === 'string' ? body.nome.trim() : '';
   if (!nome || nome.length > 80) return erro('Informe o nome do imóvel ou projeto (até 80 caracteres)');
+  const criadoPor = typeof body.criadoPor === 'string' ? body.criadoPor.trim() : '';
+  if (!criadoPor || criadoPor.length > 80) return erro('Informe quem está criando a proposta (até 80 caracteres)');
 
   const falha = validarInputs(inputs)
     || validarArquivos(fotos, MAX_FOTOS, 'fotos')
@@ -87,14 +89,14 @@ export async function POST(request) {
   try {
     [inserido] = await db`
       insert into public.negocios (
-        id, nome, preco_venda, preco_compra, aplicar_imt,
+        id, nome, criado_por, preco_venda, preco_compra, aplicar_imt,
         comissao_venda_pct, iva_comissao_pct, roi_alvo_pct, prazo_cpcv_dias, prazo_meses,
         modo_remodelacao, remodelacao_valor_ou_pct, custos_juridicos_pct, escritura_registos_pct,
         imposto_selo_pct, outros_custos_pct, imi_anual_pct,
         resultado_conta_direta, resultado_conta_reversa,
         fotos, miniaturas, fotos_principais, documentos
       ) values (
-        ${id}, ${nome}, ${inputs.preco_venda}, ${inputs.preco_compra}, ${inputs.aplicar_imt},
+        ${id}, ${nome}, ${criadoPor}, ${inputs.preco_venda}, ${inputs.preco_compra}, ${inputs.aplicar_imt},
         ${inputs.comissao_venda_pct}, ${inputs.iva_comissao_pct}, ${inputs.roi_alvo_pct}, ${inputs.prazo_cpcv_dias}, ${inputs.prazo_meses},
         ${inputs.modo_remodelacao}, ${inputs.remodelacao_valor}, ${inputs.custos_juridicos_pct}, ${inputs.escritura_registos_pct},
         ${inputs.imposto_selo_pct}, ${inputs.outros_custos_pct}, ${inputs.imi_anual_pct},

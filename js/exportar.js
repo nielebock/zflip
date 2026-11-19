@@ -4,6 +4,8 @@
 
 let negocioAtual = null; // { id, nome, tag, urlPdf }, descartado quando os dados mudam
 let ultimoNome = '';
+// Lembrado no aparelho entre propostas, para não digitar toda vez.
+let ultimoCriadoPor = localStorage.getItem('zflip_criado_por') || '';
 
 const painelPronto = document.getElementById('pronto');
 const linkPdf = document.getElementById('link-pdf');
@@ -54,15 +56,21 @@ function nomeDeArquivo(negocio) {
   return `proposta-${base || 'zflip'}`;
 }
 
-// Abre a janela para nomear o imóvel. Devolve o nome, ou null se o usuário cancelar.
+// Abre a janela para nomear o imóvel e dizer quem está criando a proposta.
+// Devolve { nome, criadoPor }, ou null se o usuário cancelar.
 function pedirNome() {
   const dlg = document.getElementById('dlg-nome');
   const campo = document.getElementById('nome_imovel');
+  const campoCriadoPor = document.getElementById('criado_por');
   const form = document.getElementById('form-nome');
   const cancelar = document.getElementById('nome-cancelar');
   return new Promise(resolve => {
     let resultado = null;
-    const aoEnviar = () => { resultado = campo.value.trim() || null; };
+    const aoEnviar = () => {
+      const nome = campo.value.trim();
+      const criadoPor = campoCriadoPor.value.trim();
+      resultado = nome && criadoPor ? { nome, criadoPor } : null;
+    };
     const aoCancelar = () => dlg.close();
     const aoFechar = () => {
       form.removeEventListener('submit', aoEnviar);
@@ -71,6 +79,7 @@ function pedirNome() {
       resolve(resultado);
     };
     campo.value = ultimoNome;
+    campoCriadoPor.value = ultimoCriadoPor;
     form.addEventListener('submit', aoEnviar);
     cancelar.addEventListener('click', aoCancelar);
     dlg.addEventListener('close', aoFechar);
@@ -140,9 +149,12 @@ async function enviarTodos(tarefas, definirStatus) {
 async function garantirPdf(inputs, definirStatus) {
   if (negocioAtual) return negocioAtual;
 
-  const nome = await pedirNome();
-  if (!nome) return null;
+  const dados = await pedirNome();
+  if (!dados) return null;
+  const { nome, criadoPor } = dados;
   ultimoNome = nome;
+  ultimoCriadoPor = criadoPor;
+  localStorage.setItem('zflip_criado_por', criadoPor);
 
   // Todas as fotos vão para o banco: reduzidas (1600 px) e com miniatura. As principais
   // (até 4) são indicadas por posição e entram grandes no relatório.
@@ -160,7 +172,7 @@ async function garantirPdf(inputs, definirStatus) {
 
   definirStatus('Salvando o negócio...');
   const meta = a => a.map(f => ({ nome: f.name, tamanho: f.size }));
-  const criado = await chamarApi('/api/negocio', { nome, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
+  const criado = await chamarApi('/api/negocio', { nome, criadoPor, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
 
   const tarefas = [];
   const juntar = (caminhos, arquivosDaLista) => caminhos.forEach((caminho, i) => tarefas.push({ caminho, arquivo: arquivosDaLista[i] }));
