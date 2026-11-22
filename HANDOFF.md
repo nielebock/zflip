@@ -1,124 +1,118 @@
-# Handoff: ZFlip 2.0 (migração Supabase → Neon + Vercel Blob)
+# Handoff: ZFlip 2.0 (SharePoint em produção, ajustes de produto)
 
-**Data:** 2026-10-13
-**Status:** em andamento, mas publicado e funcional. App novo (`zflip2.0`) em produção, em paralelo ao app antigo (que continua intacto). Faltam pendências pequenas e a integração com SharePoint (bloqueada no TI).
+**Data:** 2026-11-22
+**Status:** ZFlip 2.0 em produção, testado de ponta a ponta com arquivos reais. O app antigo (Supabase) não é mais considerado relevante pelo usuário, mas segue intacto e no ar em paralelo.
 
 ---
 
 ## 1. Objetivo
 
-Reconstruir o backend do ZFlip (calculadora de flip imobiliário da Zuri Real Estate, ver `CLAUDE.md` e `zflip_spec_claude_code.md` para o app em si) trocando o Supabase (Postgres + Storage) por **Neon** (Postgres) e **Vercel Blob** (armazenamento), por decisão do usuário, sem mexer no app em produção enquanto isso. O app funcional (cálculo, PDF, e-mail, WhatsApp) continua exatamente igual; só o que está por trás mudou. No fim, a ideia é trocar o Vercel Blob pelo SharePoint da Zuri, assim que o TI liberar.
+Continuar o ZFlip 2.0 (calculadora de flip imobiliário da Zuri Real Estate, ver `CLAUDE.md` e `zflip_spec_claude_code.md`) depois da migração de backend (Supabase → Neon + SharePoint, ver handoff anterior de 13/10 no histórico do git). Esta sessão cobriu: concluir a integração com o SharePoint, corrigir dois bugs reais achados ao testar com arquivos de verdade no celular, e três pedidos de produto (quem criou a proposta, IMT desligado por padrão, preço por m²).
 
 ## 2. Contexto essencial
 
-**Stack nova (branch `zflip2-neon`)**
-- Frontend: igual ao app antigo, HTML/CSS/JS puro, sem build.
-- Backend: Vercel Functions em `api/`. Mesmas dependências do app antigo, trocando `@supabase/supabase-js` por `@neondatabase/serverless` e `@vercel/blob`.
-- Banco: Neon, projeto `zflip2.0`, região Londres (AWS eu-west-2).
-- Armazenamento: Vercel Blob, Store `zflip2.0-blob`, acesso **Público** (obrigatório: o link do PDF é compartilhado por WhatsApp/e-mail, sem token).
-- E-mail: Resend, domínio `zurirealestate.pt` verificado (DKIM, SPF, DMARC), sem MX (só envio).
-- Domínio do app: `zflip.zurirealestate.com` (DNS gerenciado na OVH).
+- **Branch de trabalho: `zflip2-neon`** (não `main`, que é o app antigo). Vercel: projeto `zflip2.0`. Domínio: `https://zflip.zurirealestate.com`.
+- `neon/LEIA-ME.md` é a fonte de verdade viva do estado da migração, mais detalhada que este handoff em tudo que é específico de infraestrutura (Neon, Vercel, SharePoint, Resend). Ler antes de mexer em `api/_lib/armazenamento.js`, `api/_lib/graph.js` ou `api/_lib/db.js`.
+- **Usuário já não considera mais o app antigo (Supabase) relevante**: perguntado explicitamente nesta sessão se as mudanças de produto deveriam ir para os dois apps, ele disse para aplicar nos dois "se fizer sentido manter", mas deixou claro que o antigo não importa mais. Na prática, só o `zflip2-neon` recebeu as mudanças desta sessão.
+- **Toda alteração de schema no Neon precisa ser pedida ao usuário via SQL Editor** (esta sessão não tem acesso direto ao banco). Sempre dar o `ALTER TABLE` pronto para copiar e colar.
+- **Deploy é automático a cada `git push` na branch**, não precisa pedir redeploy manual. Para confirmar que propagou, checar via `curl` no próprio domínio de produção (ex.: `curl -sS https://zflip.zurirealestate.com/index.html | grep -c 'id="algum_campo_novo"'`), porque o acesso ao MCP da Vercel para listar deployments variou de uma sessão para outra (às vezes dá 403, sem explicação clara do porquê).
+- **Cache do PWA no celular**: depois de um deploy, o celular pode continuar rodando o JavaScript antigo se o app ficou aberto em segundo plano. Sempre orientar o usuário a fechar o app completamente (deslizar para fora no seletor de apps) e abrir de novo antes de testar algo novo.
 
-**Decisões tomadas nesta sessão**
-- **Estrutura em paralelo, não substituição**: branch `zflip2-neon`, projeto Vercel `zflip2.0` separado do `zflip` original. O app antigo (`zflip-eosin.vercel.app`, Supabase) não foi tocado.
-- **Vercel Blob como ponte temporária**, não solução final. `api/_lib/armazenamento.js` é a única peça que vai mudar quando o SharePoint for liberado; o resto do código (`negocio.js`, `pdf.js`, `email.js`) só conhece as 3 funções desse arquivo (`subirArquivo`, `baixarComoBuffer`, `caminhoParaUpload`), não o Blob diretamente.
-- **`zurirealestate.com` não pôde ser usado para e-mail**: o TI já configurou alias de e-mail do `zurire.com` nesse domínio, risco de quebrar isso. Por isso o Resend foi verificado no `zurirealestate.pt` (domínio separado, limpo, também na OVH).
-- **Numeração da proposta**: 5 propostas já existem no sistema antigo (Supabase), então a sequência no Neon foi reiniciada para começar em 6 (`negocios_numero_seq restart with 6`), para não colidir a numeração entre os dois sistemas.
-- **Remetente do e-mail**: `Zuri Propostas <propostas@zurirealestate.pt>`. Toda proposta enviada vai com `cc` e `replyTo` para `financeiro@zurire.com` (a caixa `propostas@` só encaminha, não tem inbox própria).
-- **Assunto do e-mail**: passou a incluir a tag da proposta (`Proposta 0006_Zuri_2026.10.13_NomeDoImovel: NomeDoImovel`), não só o nome.
-- **Campo de e-mail do destinatário**: removido o valor padrão (`nielebock@gmail.com`), que só existia porque o Resend em modo teste só entregava para o dono da conta. Com o domínio verificado, envia para qualquer destinatário.
+## 3. O que já foi feito nesta sessão, em ordem
 
-## 3. O que já foi feito, em ordem
+### SharePoint: autenticação e teste de ponta a ponta
 
-1. Código inteiro portado de Supabase para Neon + Vercel Blob (`api/_lib/db.js` novo, `api/_lib/supabase.js` removido, `api/negocio.js`/`pdf.js`/`email.js` reescritos com SQL direto via template marcado do driver do Neon).
-2. `api/blob-upload.js` criado (emite token de upload do Vercel Blob para o celular, substituindo a signed URL do Supabase Storage).
-3. **Auditoria de segurança** rodada na branch: achado real (confiança 7/10, abaixo do corte de reportar) sobre `onBeforeGenerateToken` aceitar qualquer caminho sem checar dono. Corrigido mesmo assim, como reforço: agora confere que o caminho pedido pertence a um negócio existente no banco antes de emitir o token.
-4. Usuário criou o projeto no Neon, rodou o schema (`neon/001_schema.sql`), criou o projeto novo na Vercel apontando para a branch `zflip2-neon`, criou o Blob Store.
-5. **Armadilha**: o Blob Store precisa ser criado com Access **Public** (não o padrão "Private") e com a caixa "Add a read-write token env var to this connection" marcada, senão a `BLOB_READ_WRITE_TOKEN` não é criada e o PDF falha silenciosamente.
-6. Domínio `zflip.zurirealestate.com` cadastrado na Vercel, CNAME criado na OVH (`zflip` → `cname.vercel-dns.com`), certificado SSL emitido, confirmado via `curl` e pela API da Vercel (`misconfigured: false`).
-7. Resend configurado: domínio `zurirealestate.pt` verificado, chave de API criada.
-8. **Dois bugs achados e corrigidos testando de ponta a ponta** (criei negócio de teste e chamei a API em produção direto via `curl`, não só confiando no "parece certo"):
-   - `BLOB_READ_WRITE_TOKEN` ausente (resolvido reconectando o Blob Store com as opções certas, passo 5 acima).
-   - Erro `Cannot convert argument to a ByteString... value of 8220` no envio de e-mail: testei cada campo do corpo do e-mail caractere a caractere, nenhum continha o caractere problemático. Conclusão: a própria `RESEND_API_KEY` tinha um caractere invisível colado nela na hora de criar (provavelmente colada de um lugar com autocorreção de aspas). Resolvido criando uma chave nova no Resend e copiando com o botão de copiar, não selecionando manualmente.
-9. **Limite de segurança do ambiente, duas vezes**: o classificador de automação deste ambiente bloqueou (a) checar a própria `RESEND_API_KEY` por um endpoint de diagnóstico público (mesmo sem expor o valor) e (b) publicar um endpoint temporário de "apagar negócio" sem autenticação. As duas vezes, recuei e segui pelo caminho manual (pedir para o usuário rodar SQL direto no Neon). Não tentar essas duas coisas de novo.
-10. Testado de ponta a ponta com sucesso: criar negócio → gerar PDF → enviar e-mail, tudo confirmado funcionando no domínio de produção.
+1. Usuário recebeu do TI as credenciais do app registrado no Entra ID (Client ID, Tenant ID, Client Secret) e o endereço real do SharePoint: site `arjonholding.sharepoint.com/sites/ZURI-FINANCEIRO`, pasta `ZURI - Novos Investimentos/ZURI - Propostas` dentro da biblioteca "Documentos Compartilhados" (diferente do que tinha sido assumido antes, que era só "Zuri - Propostas" na raiz).
+2. Implementado `api/_lib/graph.js` (cliente mínimo do Microsoft Graph, autenticação client credentials, cache de token e de drive ID) e reescrito `api/_lib/armazenamento.js` para orquestrar: fotos/documentos continuam subindo do celular para o Vercel Blob (contorna o limite de 4,5 MB da função), e ao gerar o PDF, uma função nova (`migrarParaSharePoint`) copia tudo para a subpasta da proposta (nomeada pela tag) no SharePoint e apaga a cópia temporária do Blob.
+3. **Decisão de arquitetura perguntada ao usuário antes de implementar**: manter o Blob como etapa intermediária do upload direto do celular (impossível contornar o limite de 4,5 MB de outro jeito sem expor o client secret no navegador), copiando para o SharePoint só na hora de gerar o PDF. Usuário confirmou essa opção.
+4. **Sequência de bugs reais, todos diagnosticados com o método "expor o erro real temporariamente, corrigir, reverter o diagnóstico"**:
+   - Colisão de nome de variável em `api/pdf.js` (`const [fotos, ...]` da migração vs. `const fotos` já existente) quebrava a função inteira com erro cru, sem log útil.
+   - `401 invalid_client` do Microsoft Graph: o e-mail do TI tinha os campos "KEY" e "VALUE" com os nomes trocados em relação ao portal do Entra (o "VALUE" do TI era na verdade o Secret ID, um GUID; o "KEY" era o Secret Value de verdade). Resolvido depois de comparar os formatos (GUID vs. string com `~`).
+   - Mesmo depois de corrigir o valor, persistia o erro: era espaço/quebra de linha colado junto ao secret (mesma classe de bug já vista com a `RESEND_API_KEY` antes). Corrigido com `.trim()` nas três variáveis de ambiente do SharePoint.
+5. Testado de ponta a ponta com sucesso: criar negócio → gerar PDF → migrar para o SharePoint → ler de volta para enviar e-mail.
 
-**Descartado**
-- Criar um endpoint administrativo na API para apagar o negócio de teste sozinho: bloqueado pelo ambiente (ver item 9), voltei para pedir ao usuário rodar o SQL manualmente no Neon.
-- Diagnosticar a `RESEND_API_KEY` via resposta de erro da própria API pública: mesmo bloqueio, resolvido recriando a chave em vez de investigar a antiga.
+### Dois bugs achados testando com arquivos de verdade no celular
+
+6. **Upload de foto/documento falhava sempre, com qualquer rede (wifi, dados, sinal cheio)**: a mensagem genérica "Falha ao enviar X" escondia o motivo real. Depois de expor `e?.message`, apareceu: `Vercel Blob: client/upload doesn't allow addRandomSuffix`. `js/exportar.js` repetia do lado do navegador uma opção que só pode ser definida no servidor (`api/blob-upload.js` já define `addRandomSuffix: false` em `onBeforeGenerateToken`). Esse bug existia desde a migração para o Blob, só nunca tinha sido exercido porque os testes anteriores (via `curl`) não enviavam arquivos de verdade. Corrigido removendo a opção duplicada do lado do cliente.
+7. **Link do PDF pedia login de conta Microsoft da Zuri**: ao devolver a URL do SharePoint (`item.webUrl`) direto para o app, quem recebe a proposta por e-mail ou WhatsApp (cliente, investidor, geralmente sem conta Microsoft da Zuri) não conseguia abrir. Corrigido criando `api/arquivo.js` (endpoint `GET /api/arquivo?id=...`), que busca o PDF no SharePoint com as credenciais do app e serve pelo próprio domínio do ZFlip. `api/pdf.js` agora devolve essa URL, nunca a do SharePoint direto.
+8. Usuário confirmou os dois fixes funcionando, testando com fotos e documentos reais no iPhone.
+
+### Três pedidos de produto
+
+9. **Tag de quem criou a proposta**: campo "Criado por" adicionado na mesma janela onde se digita o nome do imóvel (antes de gerar o PDF). Salvo em `public.negocios.criado_por`, lembrado no aparelho entre propostas via `localStorage` (não precisa digitar toda vez). Pedido do usuário para reposicionar: inicialmente mostrado no rodapé do PDF, movido depois para uma faixa logo abaixo do cabeçalho verde (header) da folha de proposta.
+10. **IMT desligado por padrão**: o botão "Aplicar IMT?" no formulário agora começa desmarcado (antes vinha marcado por padrão).
+11. **Preço por m²**: novo campo opcional "Área do imóvel (m²)" no formulário (`area_m2`, nova coluna em `public.negocios`). Quando preenchido, tanto a tela quanto o PDF mostram duas linhas extras na tabela de contas ("Preço de venda por m²" e "Preço de compra por m²"), calculadas para as duas colunas (preço máximo e preço informado). Sem área, essas linhas somem (não aparecem zeradas nem com erro).
+
+**Pergunta feita ao usuário e resposta, registrada para não repetir**: antes de implementar os três pedidos de produto, perguntei se eram para o ZFlip 2.0, o app antigo, ou os dois. Resposta: só o ZFlip 2.0 importa agora, o antigo não é mais considerado relevante (mas não foi formalmente descontinuado).
 
 ## 4. Estado atual
 
-**Funciona, confirmado em produção (`https://zflip.zurirealestate.com`)**
-- Criar negócio (cálculo, tag, numeração sequencial).
-- Gerar PDF (sobe para o Vercel Blob, link público retornado).
-- Enviar e-mail (remetente `Zuri Propostas`, cc para financeiro, assunto com a tag, PDF anexado).
-- Domínio com HTTPS válido.
+**Funciona, confirmado em produção com testes reais pelo usuário no celular**
+- Criar negócio, gerar PDF, migrar fotos/documentos/PDF para o SharePoint, enviar e-mail lendo do SharePoint.
+- Link do PDF abre sem pedir login.
+- Upload de fotos e documentos reais pelo iPhone.
+- PWA instalado com ícone, testado no iPhone (instruções passo a passo já dadas; Android ainda não confirmado pelo usuário, mas o fluxo de instalação é equivalente).
+- Campo "Criado por" aparecendo na proposta, IMT desligado por padrão, preço por m² calculado quando a área é informada.
 
 **Não confirmado**
-- Upload de fotos/documentos do celular de verdade (o token do blob-upload foi só revisado por código e na auditoria, nunca testado com um upload real).
-- PWA instalado no celular com ícone (instruções já passadas ao usuário, ele ainda não confirmou que fez).
-- WhatsApp, Abrir/Compartilhar PDF no iPhone (herdado do app antigo, nunca confirmado nem lá nem aqui).
+- WhatsApp e Abrir/Compartilhar PDF num Android de verdade (só confirmado no iPhone).
+- Se o usuário já apagou as chaves antigas do Resend no painel (pendência que vem desde a sessão de 13-14/10).
 
 **Pendente de limpeza**
-- Dois negócios de teste ficaram no banco em algum momento da sessão (ids `0e3c89ee-888d-45bd-acf9-d3e8cda4b4b0` e `dbd32878-d3ae-44cf-a54d-d75bca2151ad`); o usuário está apagando via SQL Editor do Neon, reiniciando a sequência em 6 a cada vez. **Confirmar se o último `delete` + `restart sequence` já foi rodado antes de considerar a numeração limpa.**
-- Chaves antigas do Resend (a original com o caractere inválido, e a "v2" que também ficou visível numa captura de tela da conversa) ainda não foram apagadas no painel do Resend.
+- Usuário confirmou nesta sessão que já rodou todos os `ALTER TABLE` pedidos (`criado_por`, `area_m2`) e os `DELETE`/`RESTART SEQUENCE` de limpeza de negócios de teste anteriores. Schema do Neon deveria estar em dia com `neon/001_schema.sql` neste momento.
 
 ## 5. Próximos passos
 
-1. **Confirmar que o SQL de limpeza mais recente foi rodado** (apagar `dbd32878-...`, reiniciar sequência em 6). Se não, rodar:
-   ```sql
-   delete from public.negocios where id = 'dbd32878-d3ae-44cf-a54d-d75bca2151ad';
-   alter sequence public.negocios_numero_seq restart with 6;
-   ```
-2. Apagar as chaves antigas do Resend (API Keys, apagar a original e a "v2", manter só a mais recente).
-3. Testar no celular de verdade: instalar como PWA (instruções na seção 7), subir fotos/documentos, abrir e compartilhar o PDF, mandar por WhatsApp.
-4. Levar o pedido de registro no Entra ID para o TI (texto pronto na seção 7). Quando devolverem Client ID, Tenant ID e Client Secret, trocar `api/_lib/armazenamento.js` para usar o Microsoft Graph em vez do Vercel Blob. A pasta raiz `Zuri - Propostas` já existe no SharePoint; cada proposta deve virar uma subpasta dentro dela, nomeada pela tag.
-5. Decidir quando desligar de vez o projeto antigo (Supabase + `zflip-eosin.vercel.app`) e se migra os negócios de teste que sobraram lá.
-6. Decidir o domínio final de e-mail de produção da Zuri como um todo (ainda sem decisão sobre Microsoft 365 vs. Resend para o resto da empresa, fora do escopo do ZFlip).
+1. Perguntar ou confirmar se as chaves antigas do Resend já foram apagadas no painel.
+2. Testar no Android de verdade (instalação como PWA, WhatsApp, compartilhar PDF), já que só foi confirmado no iPhone.
+3. Decidir, em algum momento, se o app antigo (Supabase, branch `main`, `zflip-eosin.vercel.app`) é formalmente desligado, já que o usuário disse não considerá-lo mais relevante.
+4. Qualquer novo pedido de produto: confirmar primeiro se é só para o `zflip2-neon` (como ficou combinado nesta sessão) antes de tocar no app antigo.
 
 ## 6. Perguntas em aberto
 
-1. Quando o TI aprovar o Entra ID, quem vai rodar a Parte 2 (autorizar o app via Graph Explorer na pasta `Zuri - Propostas`)? Precisa de alguém com acesso de admin ao site do SharePoint.
-2. O negócio de teste `0006` (se ainda não foi apagado) deveria virar o primeiro negócio real, ou precisa mesmo ser removido? Usuário pediu para apagar, mas confirmar que não há nenhum uso real dele.
-3. Vale a pena migrar os negócios de teste do Supabase antigo (poucos, ver handoff anterior) para o Neon, ou começar do zero é melhor?
+1. O app antigo (Supabase) deve ser desligado formalmente, ou só abandonado sem mexer?
+2. Vale a pena migrar os negócios de teste do Supabase antigo para o Neon, para manter histórico, ou começar do zero é melhor?
 
 ## 7. Artefatos relevantes
 
 **Branch e projetos**
-- Repositório: `nielebock/zflip`, branch `zflip2-neon` (não confundir com `main`, que é o app antigo)
-- Vercel: projeto `zflip2.0` (`prj_fI5uwORuqDOCfplKuWccdG7zij5m`), equipe `team_8QM8psMHncP11bluZYMqN9KG`
-- Domínio: `https://zflip.zurirealestate.com`
-- Neon: projeto `zflip2.0`, região Londres
+- Repositório: `nielebock/zflip`, branch `zflip2-neon` (branch designada desta sessão de trabalho)
+- Vercel: projeto `zflip2.0`, domínio `https://zflip.zurirealestate.com`
+- Neon: projeto `zflip2.0`
+- SharePoint: site `arjonholding.sharepoint.com/sites/ZURI-FINANCEIRO`, pasta `ZURI - Novos Investimentos/ZURI - Propostas` (biblioteca "Documentos Compartilhados")
 
-**Arquivos principais**
+**Arquivos principais (novos ou centrais desta sessão)**
 ```
-api/_lib/db.js              cliente Postgres do Neon (DATABASE_URL)
-api/_lib/armazenamento.js   camada de storage, hoje Vercel Blob (trocar por Graph quando o SharePoint liberar)
-api/blob-upload.js          emite token de upload do Blob pro celular, valida dono do negócio
-api/negocio.js              cria negócio, calcula, grava no Neon
-api/pdf.js                  gera PDF (Chromium), sobe pro Blob
-api/email.js                envia por Resend, remetente Zuri Propostas, cc pro financeiro
-neon/001_schema.sql          schema consolidado das migrações do Supabase
-neon/LEIA-ME.md              documentação viva desta migração, atualizar a cada mudança relevante
+api/_lib/graph.js            cliente Microsoft Graph (autenticação, token, drive ID)
+api/_lib/armazenamento.js     orquestra Blob (upload direto do celular) + SharePoint (destino final)
+api/arquivo.js                GET /api/arquivo?id=... serve o PDF do SharePoint sem exigir login
+api/pdf.js                    gera PDF, migra fotos/documentos/PDF pro SharePoint, devolve url de api/arquivo.js
+js/exportar.js                fluxo de upload do celular (sem addRandomSuffix duplicado), pede nome + criado_por
+api/_lib/proposta.js          template do PDF: linhas de €/m², faixa "criado por" abaixo do cabeçalho
+neon/001_schema.sql            schema de referência (criado_por, area_m2 adicionados)
+neon/LEIA-ME.md                documentação viva da migração, atualizada nesta sessão
 ```
-
-**Pedido pronto para o TI (Entra ID), ver `neon/LEIA-ME.md` para o texto completo com os passos numerados.**
 
 **Comandos úteis**
 ```
-# Testar a API em produção direto (sem precisar abrir o app no navegador):
+# Confirmar que um deploy propagou (sem depender do MCP da Vercel, que às vezes nega acesso):
+curl -sS https://zflip.zurirealestate.com/index.html | grep -c 'id="algum_campo_novo"'
+
+# Testar a API em produção direto:
 curl -X POST https://zflip.zurirealestate.com/api/negocio -H "Content-Type: application/json" -d '{...}'
 curl -X POST https://zflip.zurirealestate.com/api/pdf -H "Content-Type: application/json" -d '{"id":"..."}'
 curl -X POST https://zflip.zurirealestate.com/api/email -H "Content-Type: application/json" -d '{"id":"...","para":"..."}'
 ```
-SQL de conferência (Neon, somente leitura): `select numero, tag, nome from public.negocios order by numero;`
 
 ## 8. Instruções pra próxima sessão
 
-- Ler `CLAUDE.md`, `zflip_spec_claude_code.md` e `neon/LEIA-ME.md` primeiro (nessa ordem). O `LEIA-ME.md` é a fonte de verdade do estado da migração, mais atualizado que este handoff em caso de divergência.
-- Esta sessão rodou num ambiente de nuvem sem acesso direto ao banco (Neon) nem a ferramentas de navegador. Toda alteração no banco precisou ser pedida ao usuário via SQL Editor do Neon; todo teste de ponta a ponta foi feito via `curl` direto na API em produção, não pelo navegador. Se a próxima sessão tiver acesso a essas ferramentas, pode simplificar bastante.
-- **Nunca tentar criar um endpoint público sem autenticação para ações administrativas** (apagar dados, etc.), mesmo que temporário: o classificador de segurança do ambiente bloqueia, e com razão. Pedir para o usuário rodar o SQL manualmente é mais lento, mas é o caminho certo.
-- **Nunca tentar diagnosticar o conteúdo de uma secret (API key, token) expondo características dela** (tamanho, caracteres) numa resposta de API pública, mesmo sem revelar o valor. Se uma secret está suspeita de estar corrompida, a resposta certa é recriá-la, não investigá-la.
-- Modo de trabalho do usuário: conciso, direto, gosta de testar em produção de verdade (não ficar só no "deveria funcionar"), e pede confirmação ativa a cada passo arriscado antes de prosseguir.
-- Nunca usar hífens nem travessões em texto visível ao usuário, nem emojis (regra do `CLAUDE.md` do projeto, vale também para este handoff e qualquer documentação).
+- Ler `CLAUDE.md`, `zflip_spec_claude_code.md` e `neon/LEIA-ME.md` primeiro (nessa ordem). O `LEIA-ME.md` é mais detalhado que este handoff em tudo de infraestrutura (Neon, Vercel, SharePoint).
+- **Confirmar a branch antes de mexer em qualquer coisa**: `git branch --show-current` deve dar `zflip2-neon`. A branch designada automaticamente para a sessão pode vir diferente (já aconteceu de a sessão abrir no `main`, que é o app antigo); nesse caso, `git fetch origin zflip2-neon && git checkout zflip2-neon` antes de qualquer edição.
+- Esta sessão não tem acesso direto ao banco do Neon: toda mudança de schema precisa de um `ALTER TABLE` pronto, pedido ao usuário rodar no SQL Editor (ensinar a abrir uma aba nova com o `+`, sem sobrescrever consultas salvas).
+- O acesso ao MCP da Vercel para listar deployments e variáveis de ambiente é inconsistente entre sessões (funciona numa, dá 403 em outra, sem padrão claro). Não depender dele: confirmar deploys via `curl` direto no domínio de produção.
+- **Nunca criar endpoint administrativo sem autenticação** (apagar dados, etc.), mesmo temporário: o classificador de segurança do ambiente bloqueia. Pedir para o usuário rodar SQL manualmente é o caminho certo.
+- **Nunca tentar diagnosticar o conteúdo de uma secret expondo características dela** (tamanho, caracteres) numa resposta pública, mesmo sem revelar o valor. Se uma secret está suspeita, a resposta certa é recriá-la ou aplicar `.trim()` defensivo, não investigá-la.
+- Metodologia que funcionou bem nesta sessão para bugs difíceis: expor `e?.message` (ou detalhes do erro) temporariamente numa resposta de API, reproduzir o problema, diagnosticar pela mensagem real, corrigir, e só então reverter o diagnóstico antes do commit final. Não deixar diagnóstico temporário em produção por mais que o necessário.
+- Antes de implementar um pedido de produto, confirmar se é só para o ZFlip 2.0 ou também para o app antigo (nesta sessão o usuário deixou claro que só o ZFlip 2.0 importa, mas perguntar de novo se não estiver óbvio pelo contexto).
+- Modo de trabalho do usuário: conciso, direto, testa em produção de verdade no próprio celular, dá print de tela quando algo dá errado (ler a mensagem de erro exibida no app, que geralmente aparece em vermelho na parte de baixo da tela).
+- Nunca usar hífens nem travessões em texto visível ao usuário, nem emojis (regra do `CLAUDE.md` do projeto).

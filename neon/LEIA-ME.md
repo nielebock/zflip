@@ -1,6 +1,6 @@
 # ZFlip 2.0, estrutura paralela
 
-**Status em 13/10/2026: publicado e em produção**, em `https://zflip.zurirealestate.com`, separado do app antigo (`zflip-eosin.vercel.app`, continua intacto). Projeto Vercel `zflip2.0`, branch `zflip2-neon`.
+**Status em 22/11/2026: em produção e testado de ponta a ponta com arquivos reais** (fotos, documentos, PDF, e-mail, SharePoint), em `https://zflip.zurirealestate.com`, separado do app antigo (`zflip-eosin.vercel.app`, continua intacto). Projeto Vercel `zflip2.0`, branch `zflip2-neon`. O usuário já não considera mais o app antigo (Supabase) relevante.
 
 ## O que mudou em relação ao app antigo (Supabase)
 
@@ -29,10 +29,20 @@ Variáveis em uso no Vercel: `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SH
 1. Bug de sintaxe em `api/pdf.js`: `const [fotos, ...]` da migração colidia com `const fotos` já usado para os dados do PDF, quebrava a função inteira (`FUNCTION_INVOCATION_FAILED` cru, sem chegar ao try/catch). Corrigido renomeando as variáveis da migração.
 2. Confusão no e-mail do TI sobre qual campo é o segredo: o e-mail trazia "KEY" (formato `4JG8Q~dlwGYKlR...`, esse é o Secret Value de verdade) e "VALUE" (um GUID, que na realidade era o Secret ID). Os rótulos do e-mail do TI estavam trocados em relação aos nomes do portal do Entra. Além disso, um espaço ou quebra de linha colado junto ao secret causava `AADSTS7000215: Invalid client secret` mesmo com o valor certo (igual já tinha acontecido com o RESEND_API_KEY); `api/_lib/graph.js` agora aplica `.trim()` nas três variáveis por segurança.
 
+## Dois bugs reais encontrados testando com arquivos de verdade no celular (14/10)
+
+1. **Upload de foto/documento sempre falhava do celular**: `js/exportar.js` passava `addRandomSuffix: false` também no lado do cliente (`upload()` do `@vercel/blob/client`), e essa opção só pode vir do servidor (`api/blob-upload.js`, que já a define em `onBeforeGenerateToken`). A lib rejeitava com `client/upload doesn't allow addRandomSuffix`. Como o teste de 13/10 só usou `curl` sem fotos, esse bug nunca tinha sido exercido. Corrigido removendo a opção do lado do cliente.
+2. **Link do PDF pedia login de conta Microsoft da Zuri**: `subirArquivo` devolvia a URL do SharePoint (`item.webUrl`) direto para o app, e quem recebe a proposta (cliente, investidor) não tem conta Microsoft da Zuri para abrir. Corrigido com `api/arquivo.js` (novo endpoint `GET /api/arquivo?id=...`), que busca o arquivo no SharePoint com as credenciais do app e serve pelo próprio domínio do ZFlip, sem exigir login de quem abre o link. `api/pdf.js` agora devolve essa URL, não a do SharePoint.
+
+## Funcionalidades adicionadas depois do SharePoint (14/10 a 19/11)
+
+- **Criado por**: campo novo na janela de nome do imóvel (antes de gerar o PDF), salvo em `public.negocios.criado_por`, lembrado no aparelho via `localStorage`. Aparece numa faixa abaixo do cabeçalho verde da folha de proposta (não mais no rodapé).
+- **IMT desligado por padrão**: o botão "Aplicar IMT?" no formulário começa desmarcado (antes vinha marcado).
+- **Área do imóvel (m²)**: campo opcional no formulário (`area_m2`, coluna nova em `public.negocios`). Quando preenchido, a tela e o PDF mostram duas linhas extras na tabela de contas: "Preço de venda por m²" e "Preço de compra por m²", calculadas para as duas colunas (preço máximo e preço informado). Sem área informada, essas linhas não aparecem.
+
 ## O que falta
 
-- **Apagar as chaves antigas do Resend** no painel (a chave original, que tinha um caractere inválido colado nela, e a "v2" trocada em seguida), depois de confirmar que a chave mais nova funciona.
-- Testar no iPhone e Android: fotos, WhatsApp, Abrir/Compartilhar PDF (herdado do app antigo, nunca confirmado lá nem aqui). Instalar como PWA: abrir o site, "Adicionar à Tela de Início" (iPhone) ou "Adicionar à tela inicial" (Android).
-- Testar o fluxo completo com fotos e documentos reais (o teste de 14/10 foi só com o PDF, sem anexos), confirmando que a migração do Blob para o SharePoint funciona para eles também.
-- Migrar os poucos negócios de teste do Supabase antigo, se fizer sentido manter histórico.
+- **Apagar as chaves antigas do Resend** no painel (a chave original, que tinha um caractere inválido colado nela, e a "v2" trocada em seguida), depois de confirmar que a chave mais nova funciona. Ainda não confirmado se foi feito.
+- WhatsApp e Abrir/Compartilhar PDF no Android (testado e confirmado no iPhone; o fluxo é o mesmo, mas nunca confirmado num Android de verdade).
+- Migrar os poucos negócios de teste do Supabase antigo, se fizer sentido manter histórico (usuário já não considera o app antigo relevante, pode não valer a pena).
 - Decidir quando desligar de vez o projeto Supabase/Vercel antigo.
