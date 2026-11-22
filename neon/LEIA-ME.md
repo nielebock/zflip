@@ -40,6 +40,8 @@ Variáveis em uso no Vercel: `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SH
 - **IMT desligado por padrão**: o botão "Aplicar IMT?" no formulário começa desmarcado (antes vinha marcado).
 - **Área do imóvel (m²)**: campo opcional no formulário (`area_m2`, coluna nova em `public.negocios`). Quando preenchido, a tela e o PDF mostram duas linhas extras na tabela de contas: "Preço de venda por m²" e "Preço de compra por m²", calculadas para as duas colunas (preço máximo e preço informado). Sem área informada, essas linhas não aparecem.
 
+- **Morada e link do anúncio (22/11)**: campos opcionais `morada` e `link_anuncio` em `public.negocios`, pedidos na janela do nome. Cabeçalho da proposta sem "Folha de proposta" (Nome, Morada, Código); o link ocupa o lugar do título "Prazos".
+
 ## O que falta
 
 - **Apagar as chaves antigas do Resend** no painel (a chave original, que tinha um caractere inválido colado nela, e a "v2" trocada em seguida), depois de confirmar que a chave mais nova funciona. Ainda não confirmado se foi feito.

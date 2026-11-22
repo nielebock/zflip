@@ -58,6 +58,10 @@ Continuar o ZFlip 2.0 (calculadora de flip imobiliário da Zuri Real Estate, ver
 - WhatsApp e Abrir/Compartilhar PDF num Android de verdade (só confirmado no iPhone).
 - Se o usuário já apagou as chaves antigas do Resend no painel (pendência que vem desde a sessão de 13-14/10).
 
+**Atualizado em 22/11 (sessão de campos)**
+- Chaves antigas do Resend apagadas, Android testado, app antigo (Supabase, `main`) abandonado (usuário autorizou desligar; pausar projeto Vercel antigo e Supabase fica por conta do usuário, o MCP da Vercel não enxergou projetos).
+- Cabeçalho da proposta: saiu "Folha de proposta"; lado direito agora é Nome, Morada, Código. Novos campos opcionais `morada` e `link_anuncio` (na janela do nome). O link aparece no topo esquerdo do corpo, no lugar do título "Prazos". Exige `ALTER TABLE public.negocios add column morada text check (morada is null or char_length(morada) <= 160), add column link_anuncio text check (link_anuncio is null or char_length(link_anuncio) <= 500);` no Neon antes do deploy.
+
 **Pendente de limpeza**
 - Usuário confirmou nesta sessão que já rodou todos os `ALTER TABLE` pedidos (`criado_por`, `area_m2`) e os `DELETE`/`RESTART SEQUENCE` de limpeza de negócios de teste anteriores. Schema do Neon deveria estar em dia com `neon/001_schema.sql` neste momento.
 

@@ -6,6 +6,8 @@ let negocioAtual = null; // { id, nome, tag, urlPdf }, descartado quando os dado
 let ultimoNome = '';
 // Lembrado no aparelho entre propostas, para não digitar toda vez.
 let ultimoCriadoPor = localStorage.getItem('zflip_criado_por') || '';
+let ultimaMorada = '';
+let ultimoLink = '';
 
 const painelPronto = document.getElementById('pronto');
 const linkPdf = document.getElementById('link-pdf');
@@ -57,11 +59,13 @@ function nomeDeArquivo(negocio) {
 }
 
 // Abre a janela para nomear o imóvel e dizer quem está criando a proposta.
-// Devolve { nome, criadoPor }, ou null se o usuário cancelar.
+// Devolve { nome, criadoPor, morada, linkAnuncio }, ou null se o usuário cancelar.
 function pedirNome() {
   const dlg = document.getElementById('dlg-nome');
   const campo = document.getElementById('nome_imovel');
   const campoCriadoPor = document.getElementById('criado_por');
+  const campoMorada = document.getElementById('morada');
+  const campoLink = document.getElementById('link_anuncio');
   const form = document.getElementById('form-nome');
   const cancelar = document.getElementById('nome-cancelar');
   return new Promise(resolve => {
@@ -69,7 +73,11 @@ function pedirNome() {
     const aoEnviar = () => {
       const nome = campo.value.trim();
       const criadoPor = campoCriadoPor.value.trim();
-      resultado = nome && criadoPor ? { nome, criadoPor } : null;
+      const morada = campoMorada.value.trim();
+      let linkAnuncio = campoLink.value.trim();
+      // Sem esquema, assume https (quem cola "idealista.pt/..." não precisa corrigir).
+      if (linkAnuncio && !/^https?:\/\//i.test(linkAnuncio)) linkAnuncio = `https://${linkAnuncio}`;
+      resultado = nome && criadoPor ? { nome, criadoPor, morada, linkAnuncio } : null;
     };
     const aoCancelar = () => dlg.close();
     const aoFechar = () => {
@@ -80,6 +88,8 @@ function pedirNome() {
     };
     campo.value = ultimoNome;
     campoCriadoPor.value = ultimoCriadoPor;
+    campoMorada.value = ultimaMorada;
+    campoLink.value = ultimoLink;
     form.addEventListener('submit', aoEnviar);
     cancelar.addEventListener('click', aoCancelar);
     dlg.addEventListener('close', aoFechar);
@@ -151,8 +161,10 @@ async function garantirPdf(inputs, definirStatus) {
 
   const dados = await pedirNome();
   if (!dados) return null;
-  const { nome, criadoPor } = dados;
+  const { nome, criadoPor, morada, linkAnuncio } = dados;
   ultimoNome = nome;
+  ultimaMorada = morada;
+  ultimoLink = linkAnuncio;
   ultimoCriadoPor = criadoPor;
   localStorage.setItem('zflip_criado_por', criadoPor);
 
@@ -172,7 +184,7 @@ async function garantirPdf(inputs, definirStatus) {
 
   definirStatus('Salvando o negócio...');
   const meta = a => a.map(f => ({ nome: f.name, tamanho: f.size }));
-  const criado = await chamarApi('/api/negocio', { nome, criadoPor, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
+  const criado = await chamarApi('/api/negocio', { nome, criadoPor, morada, linkAnuncio, inputs, fotos: meta(fotos), principais, documentos: meta(docs) });
 
   const tarefas = [];
   const juntar = (caminhos, arquivosDaLista) => caminhos.forEach((caminho, i) => tarefas.push({ caminho, arquivo: arquivosDaLista[i] }));

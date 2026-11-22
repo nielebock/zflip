@@ -32,6 +32,16 @@ function validarInputs(i) {
   return null;
 }
 
+function linkValido(texto) {
+  if (texto.length > 500) return false;
+  try {
+    const u = new URL(texto);
+    return u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function validarArquivos(lista, max, rotulo) {
   if (!Array.isArray(lista)) return `Lista de ${rotulo} inválida`;
   if (lista.length > max) return `Máximo de ${max} ${rotulo}`;
@@ -72,6 +82,11 @@ export async function POST(request) {
   const criadoPor = typeof body.criadoPor === 'string' ? body.criadoPor.trim() : '';
   if (!criadoPor || criadoPor.length > 80) return erro('Informe quem está criando a proposta (até 80 caracteres)');
 
+  const morada = typeof body.morada === 'string' ? body.morada.trim() : '';
+  if (morada.length > 160) return erro('A morada passa de 160 caracteres');
+  const linkAnuncio = typeof body.linkAnuncio === 'string' ? body.linkAnuncio.trim() : '';
+  if (linkAnuncio && !linkValido(linkAnuncio)) return erro('Link do anúncio inválido (use um endereço http ou https, até 500 caracteres)');
+
   const falha = validarInputs(inputs)
     || validarArquivos(fotos, MAX_FOTOS, 'fotos')
     || validarArquivos(documentos, MAX_DOCUMENTOS, 'documentos')
@@ -90,14 +105,14 @@ export async function POST(request) {
   try {
     [inserido] = await db`
       insert into public.negocios (
-        id, nome, criado_por, preco_venda, preco_compra, area_m2, aplicar_imt,
+        id, nome, criado_por, morada, link_anuncio, preco_venda, preco_compra, area_m2, aplicar_imt,
         comissao_venda_pct, iva_comissao_pct, roi_alvo_pct, prazo_cpcv_dias, prazo_meses,
         modo_remodelacao, remodelacao_valor_ou_pct, custos_juridicos_pct, escritura_registos_pct,
         imposto_selo_pct, outros_custos_pct, imi_anual_pct,
         resultado_conta_direta, resultado_conta_reversa,
         fotos, miniaturas, fotos_principais, documentos
       ) values (
-        ${id}, ${nome}, ${criadoPor}, ${inputs.preco_venda}, ${inputs.preco_compra}, ${inputs.area_m2 ?? null}, ${inputs.aplicar_imt},
+        ${id}, ${nome}, ${criadoPor}, ${morada || null}, ${linkAnuncio || null}, ${inputs.preco_venda}, ${inputs.preco_compra}, ${inputs.area_m2 ?? null}, ${inputs.aplicar_imt},
         ${inputs.comissao_venda_pct}, ${inputs.iva_comissao_pct}, ${inputs.roi_alvo_pct}, ${inputs.prazo_cpcv_dias}, ${inputs.prazo_meses},
         ${inputs.modo_remodelacao}, ${inputs.remodelacao_valor}, ${inputs.custos_juridicos_pct}, ${inputs.escritura_registos_pct},
         ${inputs.imposto_selo_pct}, ${inputs.outros_custos_pct}, ${inputs.imi_anual_pct},

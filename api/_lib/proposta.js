@@ -65,6 +65,13 @@ function blocoMargem(direta, reversa) {
   </div>`;
 }
 
+// Link do anúncio, no lugar do antigo título "Prazos". Só aceita http(s); sem link, nada aparece.
+function linkAnuncio(negocio) {
+  const url = negocio.link_anuncio;
+  if (!url || !/^https?:\/\//i.test(url)) return '';
+  return `<div class="anuncio"><a href="${esc(url)}">${esc(url)}</a></div>`;
+}
+
 // Data CPCV = data de criação da proposta + prazo_cpcv_dias.
 // Data de venda prevista = Data CPCV + prazo_meses (prazo do negócio).
 function blocoPrazos(negocio) {
@@ -86,7 +93,7 @@ function blocoPrazos(negocio) {
 
   return `
   <section class="bloco evitar-quebra">
-    <h2>Prazos</h2>
+    ${linkAnuncio(negocio)}
     <div class="prazos">
       ${itens.map(i => `<div class="prazo-item"><div class="prazo-rotulo">${esc(i.rotulo)}</div><div class="prazo-valor">${esc(i.valor)}</div></div>`).join('')}
     </div>
@@ -180,6 +187,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   .marca-sub { font-size: 8pt; letter-spacing: 0.4em; text-transform: uppercase; margin-top: 8px; color: var(--stone); }
   .titulo-doc { text-align: right; font-size: 9pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); }
   .titulo-doc strong { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18pt; letter-spacing: 0.04em; text-transform: none; color: var(--limestone); font-weight: 500; margin-top: 4px; }
+  .titulo-doc .morada-doc { display: block; font-size: 9pt; letter-spacing: 0.04em; text-transform: none; color: var(--stone); margin-top: 6px; }
   .titulo-doc .tag-doc { display: block; font-size: 7.5pt; letter-spacing: 0.06em; text-transform: none; color: var(--stone); margin-top: 6px; }
   .criado-por { padding: 6px 48px 0; text-align: right; font-size: 8pt; letter-spacing: 0.04em; color: var(--mineral); }
   main { padding: 18px 48px 0; }
@@ -193,6 +201,8 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
   .contas td:first-child { text-align: left; padding-left: 0; color: var(--mineral); }
   .contas tr.destaque td { background: var(--limestone); font-weight: 600; color: var(--forest); }
   .contas tr.destaque td:first-child { padding-left: 10px; }
+  .anuncio { margin: 0 0 10px; font-size: 9pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .anuncio a { color: var(--forest); text-decoration: underline; }
   .prazos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .prazo-item { background: var(--limestone); padding: 10px 14px; }
   .prazo-rotulo { font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mineral); margin-bottom: 4px; }
@@ -234,7 +244,7 @@ export function renderProposta(negocio, { miniaturas, grandes }, docs = []) {
       <div class="marca">ZURI</div>
       <div class="marca-sub">Real Estate</div>
     </div>
-    <div class="titulo-doc">Folha de proposta<strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong>${negocio.tag ? `<span class="tag-doc">${esc(negocio.tag)}</span>` : ''}</div>
+    <div class="titulo-doc"><strong>${esc(negocio.nome || 'Análise de flip imobiliário')}</strong>${negocio.morada ? `<span class="morada-doc">${esc(negocio.morada)}</span>` : ''}${negocio.tag ? `<span class="tag-doc">${esc(negocio.tag)}</span>` : ''}</div>
   </header>
   ${negocio.criado_por ? `<div class="criado-por">Criado por ${esc(negocio.criado_por)}</div>` : ''}
   <main>

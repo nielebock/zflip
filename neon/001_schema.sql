@@ -14,6 +14,8 @@ create table if not exists public.negocios (
   criado_em timestamptz not null default now(),
   nome text check (nome is null or char_length(nome) <= 80),
   criado_por text check (criado_por is null or char_length(criado_por) <= 80),
+  morada text check (morada is null or char_length(morada) <= 160),
+  link_anuncio text check (link_anuncio is null or char_length(link_anuncio) <= 500),
 
   preco_venda numeric not null,
   preco_compra numeric,
